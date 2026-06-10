@@ -48,7 +48,7 @@
 
   <!-- Qt settings (requires Qt VS Tools or manual Qt configuration) -->
   <PropertyGroup Label="QtSettings">
-    <QtVersion>Qt6</QtVersion>
+    <QtVersion>Qt5</QtVersion>
     <QtModules>core;gui;widgets</QtModules>
   </PropertyGroup>
 
@@ -104,6 +104,19 @@
     <ClCompile Include="nodes\WatermarkNode.cpp" />
     <ClCompile Include="nodes\RotateNode.cpp" />
     <ClCompile Include="nodes\InvertNode.cpp" />
+    <ClCompile Include="nodes\SaturationNode.cpp" />
+    <ClCompile Include="nodes\HueShiftNode.cpp" />
+    <ClCompile Include="nodes\GammaNode.cpp" />
+    <ClCompile Include="nodes\ThresholdNode.cpp" />
+    <ClCompile Include="nodes\SepiaNode.cpp" />
+    <ClCompile Include="nodes\SharpenNode.cpp" />
+    <ClCompile Include="nodes\ColorTemperatureNode.cpp" />
+    <ClCompile Include="nodes\FadeNode.cpp" />
+    <ClCompile Include="nodes\PixelateNode.cpp" />
+    <ClCompile Include="nodes\VignetteNode.cpp" />
+    <ClCompile Include="nodes\PencilSketchNode.cpp" />
+    <ClCompile Include="nodes\CartoonNode.cpp" />
+    <ClCompile Include="gui\LogPanel.cpp" />
     <ClCompile Include="gui\MainWindow.cpp" />
     <ClCompile Include="gui\NodeScene.cpp" />
     <ClCompile Include="gui\NodeView.cpp" />
@@ -139,6 +152,19 @@
     <ClInclude Include="nodes\WatermarkNode.h" />
     <ClInclude Include="nodes\RotateNode.h" />
     <ClInclude Include="nodes\InvertNode.h" />
+    <ClInclude Include="nodes\SaturationNode.h" />
+    <ClInclude Include="nodes\HueShiftNode.h" />
+    <ClInclude Include="nodes\GammaNode.h" />
+    <ClInclude Include="nodes\ThresholdNode.h" />
+    <ClInclude Include="nodes\SepiaNode.h" />
+    <ClInclude Include="nodes\SharpenNode.h" />
+    <ClInclude Include="nodes\ColorTemperatureNode.h" />
+    <ClInclude Include="nodes\FadeNode.h" />
+    <ClInclude Include="nodes\PixelateNode.h" />
+    <ClInclude Include="nodes\VignetteNode.h" />
+    <ClInclude Include="nodes\PencilSketchNode.h" />
+    <ClInclude Include="nodes\CartoonNode.h" />
+    <ClInclude Include="gui\LogPanel.h" />
     <ClInclude Include="gui\MainWindow.h" />
     <ClInclude Include="gui\NodeScene.h" />
     <ClInclude Include="gui\NodeView.h" />
