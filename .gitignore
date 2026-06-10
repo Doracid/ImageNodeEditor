@@ -1,0 +1,7 @@
+build/
+qt-mvvm-develop/
+test_batch/
+*.bat
+CMakeSettings.json
+*.user
+.vs/

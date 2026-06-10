@@ -1,0 +1,27 @@
+﻿{
+    "version": "1.0",
+    "nodes": [
+        {
+            "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "title": "图像输入",
+            "type": "ImageInputNode",
+            "position": { "x": 50, "y": 100 },
+            "params": { "filePath": "" }
+        },
+        {
+            "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+            "title": "图像输出",
+            "type": "ImageOutputNode",
+            "position": { "x": 350, "y": 100 },
+            "params": { "filePath": "" }
+        }
+    ],
+    "connections": [
+        {
+            "sourceNodeId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "sourcePort": 0,
+            "targetNodeId": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+            "targetPort": 0
+        }
+    ]
+}

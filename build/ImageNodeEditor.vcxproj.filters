@@ -1,0 +1,225 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\build\ImageNodeEditor_autogen\mocs_compilation_Debug.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\core\Node.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\core\NodeRegistry.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\engine\DataPacket.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\engine\WorkflowEngine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\io\WorkflowSerializer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\algorithms\ImageAlgorithm.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\ImageInputNode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\ImageOutputNode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\ImageViewerNode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\CropNode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\ResizeNode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\BrightnessContrastNode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\GaussianBlurNode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\GrayscaleNode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\EdgeDetectionNode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\ChannelSplitNode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\ChannelMergeNode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\WatermarkNode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\RotateNode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\InvertNode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\gui\MainWindow.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\gui\NodeScene.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\gui\NodeView.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\gui\NodeGraphicsItem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\gui\PortGraphicsItem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\gui\ConnectionGraphicsItem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\gui\NodeListPanel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\gui\LogPanel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\gui\PropertyPanel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\gui\PreviewDialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\main\cli\CommandLineRunner.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\build\ImageNodeEditor_autogen\mocs_compilation_Release.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\build\ImageNodeEditor_autogen\mocs_compilation_MinSizeRel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\sunli\Desktop\期末大作业\main\build\ImageNodeEditor_autogen\mocs_compilation_RelWithDebInfo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\core\Node.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\core\Port.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\core\DataType.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\core\NodeRegistry.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\engine\DataPacket.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\engine\WorkflowEngine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\io\WorkflowSerializer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\algorithms\ImageAlgorithm.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\ImageInputNode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\ImageOutputNode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\ImageViewerNode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\CropNode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\ResizeNode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\BrightnessContrastNode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\GaussianBlurNode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\GrayscaleNode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\EdgeDetectionNode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\ChannelSplitNode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\ChannelMergeNode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\WatermarkNode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\RotateNode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\nodes\InvertNode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\gui\MainWindow.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\gui\NodeScene.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\gui\NodeView.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\gui\NodeGraphicsItem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\gui\PortGraphicsItem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\gui\ConnectionGraphicsItem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\gui\NodeListPanel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\gui\LogPanel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\gui\PropertyPanel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\gui\PreviewDialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\sunli\Desktop\期末大作业\main\main\cli\CommandLineRunner.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\sunli\Desktop\期末大作业\main\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{CEA2B916-D3D9-31F6-A7B1-31A1544C0CDC}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{0ABAA2AF-7A1F-31E4-AC33-367D03086970}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

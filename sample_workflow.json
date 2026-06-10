@@ -1,0 +1,79 @@
+{
+  "version": "1.0",
+  "nodes": [
+    {
+      "id": "input-0001-0001-0001-000000000001",
+      "title": "Image Input",
+      "type": "ImageInputNode",
+      "position": { "x": 50, "y": 200 },
+      "params": { "filePath": "" }
+    },
+    {
+      "id": "blur-0002-0002-0002-000000000002",
+      "title": "Gaussian Blur",
+      "type": "GaussianBlurNode",
+      "position": { "x": 400, "y": 50 },
+      "params": { "radius": 8 }
+    },
+    {
+      "id": "bright-0003-0003-0003-000000000003",
+      "title": "Brightness/Contrast",
+      "type": "BrightnessContrastNode",
+      "position": { "x": 400, "y": 200 },
+      "params": { "brightness": 30, "contrast": 1.3 }
+    },
+    {
+      "id": "rotate-0004-0004-0004-000000000004",
+      "title": "Rotate",
+      "type": "RotateNode",
+      "position": { "x": 400, "y": 350 },
+      "params": { "angle": 180 }
+    },
+    {
+      "id": "viewer-0005-0005-0005-000000000005",
+      "title": "Image Viewer",
+      "type": "ImageViewerNode",
+      "position": { "x": 750, "y": 100 },
+      "params": {}
+    },
+    {
+      "id": "output-0006-0006-0006-000000000006",
+      "title": "Image Output",
+      "type": "ImageOutputNode",
+      "position": { "x": 750, "y": 300 },
+      "params": { "filePath": "", "format": "PNG" }
+    }
+  ],
+  "connections": [
+    {
+      "sourceNodeId": "input-0001-0001-0001-000000000001",
+      "sourcePort": 0,
+      "targetNodeId": "blur-0002-0002-0002-000000000002",
+      "targetPort": 0
+    },
+    {
+      "sourceNodeId": "input-0001-0001-0001-000000000001",
+      "sourcePort": 0,
+      "targetNodeId": "bright-0003-0003-0003-000000000003",
+      "targetPort": 0
+    },
+    {
+      "sourceNodeId": "input-0001-0001-0001-000000000001",
+      "sourcePort": 0,
+      "targetNodeId": "rotate-0004-0004-0004-000000000004",
+      "targetPort": 0
+    },
+    {
+      "sourceNodeId": "blur-0002-0002-0002-000000000002",
+      "sourcePort": 0,
+      "targetNodeId": "viewer-0005-0005-0005-000000000005",
+      "targetPort": 0
+    },
+    {
+      "sourceNodeId": "bright-0003-0003-0003-000000000003",
+      "sourcePort": 0,
+      "targetNodeId": "output-0006-0006-0006-000000000006",
+      "targetPort": 0
+    }
+  ]
+}

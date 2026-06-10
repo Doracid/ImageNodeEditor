@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>QtVSv304</Keyword>
+    <ProjectGuid>{178129bc-4a85-44d8-acb6-c4b558fe4112}</ProjectGuid>
+    <RootNamespace>ImageNodeEditor</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props"
+            Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')"
+            Label="LocalAppDataPlatform" />
+  </ImportGroup>
+
+  <!-- Qt settings (requires Qt VS Tools or manual Qt configuration) -->
+  <PropertyGroup Label="QtSettings">
+    <QtVersion>Qt6</QtVersion>
+    <QtModules>core;gui;widgets</QtModules>
+  </PropertyGroup>
+
+  <PropertyGroup Label="UserMacros" />
+
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="core\Node.cpp" />
+    <ClCompile Include="core\NodeRegistry.cpp" />
+    <ClCompile Include="engine\DataPacket.cpp" />
+    <ClCompile Include="engine\WorkflowEngine.cpp" />
+    <ClCompile Include="io\WorkflowSerializer.cpp" />
+    <ClCompile Include="algorithms\ImageAlgorithm.cpp" />
+    <ClCompile Include="nodes\ImageInputNode.cpp" />
+    <ClCompile Include="nodes\ImageOutputNode.cpp" />
+    <ClCompile Include="nodes\ImageViewerNode.cpp" />
+    <ClCompile Include="nodes\CropNode.cpp" />
+    <ClCompile Include="nodes\ResizeNode.cpp" />
+    <ClCompile Include="nodes\BrightnessContrastNode.cpp" />
+    <ClCompile Include="nodes\GaussianBlurNode.cpp" />
+    <ClCompile Include="nodes\GrayscaleNode.cpp" />
+    <ClCompile Include="nodes\EdgeDetectionNode.cpp" />
+    <ClCompile Include="nodes\ChannelSplitNode.cpp" />
+    <ClCompile Include="nodes\ChannelMergeNode.cpp" />
+    <ClCompile Include="nodes\WatermarkNode.cpp" />
+    <ClCompile Include="nodes\RotateNode.cpp" />
+    <ClCompile Include="nodes\InvertNode.cpp" />
+    <ClCompile Include="gui\MainWindow.cpp" />
+    <ClCompile Include="gui\NodeScene.cpp" />
+    <ClCompile Include="gui\NodeView.cpp" />
+    <ClCompile Include="gui\NodeGraphicsItem.cpp" />
+    <ClCompile Include="gui\PortGraphicsItem.cpp" />
+    <ClCompile Include="gui\ConnectionGraphicsItem.cpp" />
+    <ClCompile Include="gui\NodeListPanel.cpp" />
+    <ClCompile Include="gui\PropertyPanel.cpp" />
+    <ClCompile Include="gui\PreviewDialog.cpp" />
+    <ClCompile Include="cli\CommandLineRunner.cpp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ClInclude Include="core\Node.h" />
+    <ClInclude Include="core\Port.h" />
+    <ClInclude Include="core\DataType.h" />
+    <ClInclude Include="core\NodeRegistry.h" />
+    <ClInclude Include="engine\DataPacket.h" />
+    <ClInclude Include="engine\WorkflowEngine.h" />
+    <ClInclude Include="io\WorkflowSerializer.h" />
+    <ClInclude Include="algorithms\ImageAlgorithm.h" />
+    <ClInclude Include="nodes\ImageInputNode.h" />
+    <ClInclude Include="nodes\ImageOutputNode.h" />
+    <ClInclude Include="nodes\ImageViewerNode.h" />
+    <ClInclude Include="nodes\CropNode.h" />
+    <ClInclude Include="nodes\ResizeNode.h" />
+    <ClInclude Include="nodes\BrightnessContrastNode.h" />
+    <ClInclude Include="nodes\GaussianBlurNode.h" />
+    <ClInclude Include="nodes\GrayscaleNode.h" />
+    <ClInclude Include="nodes\EdgeDetectionNode.h" />
+    <ClInclude Include="nodes\ChannelSplitNode.h" />
+    <ClInclude Include="nodes\ChannelMergeNode.h" />
+    <ClInclude Include="nodes\WatermarkNode.h" />
+    <ClInclude Include="nodes\RotateNode.h" />
+    <ClInclude Include="nodes\InvertNode.h" />
+    <ClInclude Include="gui\MainWindow.h" />
+    <ClInclude Include="gui\NodeScene.h" />
+    <ClInclude Include="gui\NodeView.h" />
+    <ClInclude Include="gui\NodeGraphicsItem.h" />
+    <ClInclude Include="gui\PortGraphicsItem.h" />
+    <ClInclude Include="gui\ConnectionGraphicsItem.h" />
+    <ClInclude Include="gui\NodeListPanel.h" />
+    <ClInclude Include="gui\PropertyPanel.h" />
+    <ClInclude Include="gui\PreviewDialog.h" />
+    <ClInclude Include="cli\CommandLineRunner.h" />
+  </ItemGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets" />
+</Project>
