@@ -1,8 +1,8 @@
 #include "PreviewDialog.h"
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QPushButton>
-#include <QApplication>
-#include <QScreen>
+#include <QResizeEvent>
 
 PreviewDialog::PreviewDialog(QWidget *parent)
     : QDialog(parent)
@@ -13,15 +13,10 @@ PreviewDialog::PreviewDialog(QWidget *parent)
 
     auto *layout = new QVBoxLayout(this);
 
-    m_scroll = new QScrollArea(this);
-    m_scroll->setWidgetResizable(true);
-    m_scroll->setAlignment(Qt::AlignCenter);
-
-    m_imageLabel = new QLabel();
+    m_imageLabel = new QLabel(this);
     m_imageLabel->setAlignment(Qt::AlignCenter);
-    m_scroll->setWidget(m_imageLabel);
-
-    layout->addWidget(m_scroll, 1);
+    m_imageLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    layout->addWidget(m_imageLabel, 1);
 
     auto *btnLayout = new QHBoxLayout();
     auto *closeBtn = new QPushButton("关闭");
@@ -33,15 +28,35 @@ PreviewDialog::PreviewDialog(QWidget *parent)
 
 void PreviewDialog::setImage(const QImage &img)
 {
+    m_originalImage = img;
     if (img.isNull()) {
         m_imageLabel->setText("无图像数据");
         return;
     }
-    m_imageLabel->setPixmap(QPixmap::fromImage(img));
-    m_imageLabel->resize(img.size());
+    updatePixmap();
 }
 
 void PreviewDialog::setTitle(const QString &title)
 {
     setWindowTitle("预览 - " + title);
+}
+
+void PreviewDialog::resizeEvent(QResizeEvent *event)
+{
+    QDialog::resizeEvent(event);
+    if (!m_originalImage.isNull())
+        updatePixmap();
+}
+
+void PreviewDialog::updatePixmap()
+{
+    if (m_originalImage.isNull()) return;
+
+    // Available area = label size inside the layout
+    QSize avail = m_imageLabel->size();
+    if (avail.width() < 10 || avail.height() < 10) return;
+
+    QPixmap pm = QPixmap::fromImage(m_originalImage);
+    QPixmap scaled = pm.scaled(avail, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    m_imageLabel->setPixmap(scaled);
 }
