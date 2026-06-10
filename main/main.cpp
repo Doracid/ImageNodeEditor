@@ -89,6 +89,18 @@ int main(int argc, char *argv[])
 #include "nodes/WatermarkNode.h"
 #include "nodes/RotateNode.h"
 #include "nodes/InvertNode.h"
+#include "nodes/SaturationNode.h"
+#include "nodes/HueShiftNode.h"
+#include "nodes/GammaNode.h"
+#include "nodes/ThresholdNode.h"
+#include "nodes/SepiaNode.h"
+#include "nodes/SharpenNode.h"
+#include "nodes/ColorTemperatureNode.h"
+#include "nodes/FadeNode.h"
+#include "nodes/PixelateNode.h"
+#include "nodes/VignetteNode.h"
+#include "nodes/PencilSketchNode.h"
+#include "nodes/CartoonNode.h"
 
 void registerAllNodeTypes()
 {
@@ -97,15 +109,27 @@ void registerAllNodeTypes()
     reg.registerType("ImageInputNode",    "输入",       "图像输入",    "从文件加载图像",           []() -> Node* { return new ImageInputNode(); });
     reg.registerType("ImageOutputNode",   "输出",      "图像输出",   "保存图像到文件",             []() -> Node* { return new ImageOutputNode(); });
     reg.registerType("ImageViewerNode",   "输出",      "图像查看器",   "在窗口中预览图像",        []() -> Node* { return new ImageViewerNode(); });
-    reg.registerType("CropNode",          "滤波",      "裁剪",           "裁剪图像区域",              []() -> Node* { return new CropNode(); });
-    reg.registerType("ResizeNode",        "滤波",      "缩放",         "调整图像尺寸",        []() -> Node* { return new ResizeNode(); });
-    reg.registerType("BrightnessContrastNode", "滤波", "亮度/对比度","调整亮度与对比度",   []() -> Node* { return new BrightnessContrastNode(); });
+    reg.registerType("CropNode",          "几何变换",      "裁剪",           "裁剪图像区域",              []() -> Node* { return new CropNode(); });
+    reg.registerType("ResizeNode",        "几何变换",      "缩放",         "调整图像尺寸",        []() -> Node* { return new ResizeNode(); });
+    reg.registerType("BrightnessContrastNode", "色彩调整", "亮度/对比度","调整亮度与对比度",   []() -> Node* { return new BrightnessContrastNode(); });
     reg.registerType("GaussianBlurNode",  "滤波",      "高斯模糊",  "应用高斯模糊",            []() -> Node* { return new GaussianBlurNode(); });
     reg.registerType("GrayscaleNode",     "转换",  "灰度化",      "转换为灰度图像",           []() -> Node* { return new GrayscaleNode(); });
     reg.registerType("EdgeDetectionNode", "滤波",      "边缘检测", "Sobel 边缘检测",           []() -> Node* { return new EdgeDetectionNode(); });
     reg.registerType("ChannelSplitNode",  "多端口",   "通道分离",  "分离为 R/G/B 通道",      []() -> Node* { return new ChannelSplitNode(); });
     reg.registerType("ChannelMergeNode",  "多端口",   "通道合并",  "合并 R/G/B 为彩色图像",         []() -> Node* { return new ChannelMergeNode(); });
-    reg.registerType("WatermarkNode",     "滤波",      "水印",      "添加文字水印",             []() -> Node* { return new WatermarkNode(); });
-    reg.registerType("RotateNode",        "滤波",      "旋转",         "按角度旋转图像",          []() -> Node* { return new RotateNode(); });
-    reg.registerType("InvertNode",        "滤波",      "反色",         "反转图像颜色",            []() -> Node* { return new InvertNode(); });
+    reg.registerType("WatermarkNode",     "几何变换",      "水印",      "添加文字水印",             []() -> Node* { return new WatermarkNode(); });
+    reg.registerType("RotateNode",        "几何变换",      "旋转",         "按角度旋转图像",          []() -> Node* { return new RotateNode(); });
+    reg.registerType("InvertNode",        "色彩调整",      "反色",         "反转图像颜色",            []() -> Node* { return new InvertNode(); });
+    reg.registerType("SaturationNode",    "色彩调整",      "饱和度",      "调整色彩饱和度",             []() -> Node* { return new SaturationNode(); });
+    reg.registerType("HueShiftNode",      "色彩调整",      "色相偏移",     "旋转色相角度",               []() -> Node* { return new HueShiftNode(); });
+    reg.registerType("GammaNode",         "色彩调整",      "伽马校正",    "伽马校正",                    []() -> Node* { return new GammaNode(); });
+    reg.registerType("ThresholdNode",     "转换",      "阈值",        "二值化阈值处理",              []() -> Node* { return new ThresholdNode(); });
+    reg.registerType("SepiaNode",         "风格化",    "怀旧",        "怀旧色调效果",               []() -> Node* { return new SepiaNode(); });
+    reg.registerType("SharpenNode",       "滤波",      "锐化",        "锐化图像",                   []() -> Node* { return new SharpenNode(); });
+    reg.registerType("ColorTemperatureNode", "转换", "冷暖色调",  "调节画面冷暖色温",           []() -> Node* { return new ColorTemperatureNode(); });
+    reg.registerType("FadeNode",          "转换",    "褪色",        "褪色至灰度效果",             []() -> Node* { return new FadeNode(); });
+    reg.registerType("PixelateNode",      "风格化",    "像素化",      "马赛克像素化效果",            []() -> Node* { return new PixelateNode(); });
+    reg.registerType("VignetteNode",      "风格化",    "暗角",        "添加画面边缘暗角",            []() -> Node* { return new VignetteNode(); });
+    reg.registerType("PencilSketchNode",  "风格化",    "铅笔画",      "铅笔素描画效果",             []() -> Node* { return new PencilSketchNode(); });
+    reg.registerType("CartoonNode",       "风格化",    "卡通风格",    "色彩量化+边缘描边卡通效果",   []() -> Node* { return new CartoonNode(); });
 }

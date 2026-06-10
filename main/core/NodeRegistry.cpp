@@ -30,7 +30,7 @@ QVector<QPair<QString, QVector<NodeRegistry::Entry>>> NodeRegistry::categorizedE
 {
     // Desired display order (most important first)
     static const QStringList order = {
-        "输入", "输出", "滤波", "转换", "多端口"
+        "输入", "输出", "滤波", "风格化", "色彩调整", "几何变换", "转换", "多端口"
     };
 
     // Group by category
