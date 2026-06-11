@@ -38,7 +38,10 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Scene logging
     connect(m_scene, &NodeScene::nodeSelected, this, &MainWindow::onNodeSelected);
-    connect(m_scene, &NodeScene::nodeDeselected, this, &MainWindow::onNodeDeselected);
+    connect(m_scene, &NodeScene::nodeDeselected, this, [this]() {
+        onNodeDeselected();
+        onCancelReplace();
+    });
     connect(m_scene, &NodeScene::showPreview, this, &MainWindow::onShowPreview);
     connect(m_scene, &NodeScene::connectionError, this, [this](const QString &msg) {
         m_logPanel->log("连线错误: " + msg);
@@ -60,6 +63,10 @@ MainWindow::MainWindow(QWidget *parent)
     m_nodeList->setAddNodeCallback([this](const QString &typeName) {
         onAddNode(typeName);
     });
+
+    // Replace node flow
+    connect(m_scene, &NodeScene::replaceNodeRequested, this, &MainWindow::onStartReplace);
+    connect(m_nodeList, &NodeListPanel::pickerCancelled, this, &MainWindow::onCancelReplace);
 
     m_logPanel->log("应用程序就绪");
 }
@@ -328,4 +335,55 @@ void MainWindow::onShowAbout()
         "图像节点编辑器 v1.0\n\n"
         "基于节点的图像处理工作流工具。\n\n"
         "使用 C++ 和 Qt 构建。");
+}
+
+// ---------------------------------------------------------------------------
+// Replace node
+// ---------------------------------------------------------------------------
+void MainWindow::onStartReplace(const QUuid &nodeId)
+{
+    m_replaceNodeId = nodeId;
+    Node *oldNode = m_scene->engine()->node(nodeId);
+    if (!oldNode) {
+        m_logPanel->log("替换失败：找不到原节点。");
+        return;
+    }
+
+    m_logPanel->log(QString("替换节点 - 请从左侧面板选择新节点类型 (当前: %1)").arg(oldNode->title()));
+    statusBar()->showMessage("请从左侧面板选择替换的节点类型。右键空白处取消。", 0);
+
+    m_nodeList->enterPickerMode([this](const QString &typeName) {
+        onFinishReplace(typeName);
+    });
+}
+
+void MainWindow::onFinishReplace(const QString &typeName)
+{
+    m_nodeList->exitPickerMode();
+
+    if (m_replaceNodeId.isNull()) return;
+    QUuid oldId = m_replaceNodeId;
+    m_replaceNodeId = QUuid();
+
+    QString errorMsg;
+    if (m_scene->replaceNode(oldId, typeName, errorMsg)) {
+        m_logPanel->log(QString("节点替换成功: → %1").arg(typeName));
+        statusBar()->showMessage("节点已替换", 3000);
+    } else {
+        m_logPanel->log("节点替换失败: " + errorMsg);
+        statusBar()->showMessage("替换失败", 5000);
+        if (errorMsg.contains("不兼容") || errorMsg.contains("端口")) {
+            QMessageBox::warning(this, "替换失败", errorMsg);
+        }
+    }
+}
+
+void MainWindow::onCancelReplace()
+{
+    if (m_nodeList->isPickerMode()) {
+        m_nodeList->exitPickerMode();
+        m_replaceNodeId = QUuid();
+        m_logPanel->log("已取消节点替换");
+        statusBar()->showMessage("已取消替换", 3000);
+    }
 }

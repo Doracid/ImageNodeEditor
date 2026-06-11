@@ -2,9 +2,11 @@
 #include "NodeGraphicsItem.h"
 #include "PortGraphicsItem.h"
 #include "ConnectionGraphicsItem.h"
+#include "core/NodeRegistry.h"
 #include <QKeyEvent>
 #include <QGraphicsSceneMouseEvent>
 #include <QPainter>
+#include <QTimer>
 #include <QGraphicsLineItem>
 #include <cmath>
 
@@ -213,21 +215,42 @@ void NodeScene::keyPressEvent(QKeyEvent *event)
         event->accept();
         return;
     }
+    if (event->key() == Qt::Key_Escape && m_dragging) {
+        // Cancel connection drag
+        if (m_dragLine) {
+            removeItem(m_dragLine);
+            delete m_dragLine;
+            m_dragLine = nullptr;
+        }
+        m_dragging = false;
+        m_dragSource = nullptr;
+        event->accept();
+        return;
+    }
     QGraphicsScene::keyPressEvent(event);
 }
 
 void NodeScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton) {
+        // Safety: clear any stuck connection drag first
+        if (m_dragging) {
+            endConnection(nullptr);
+        }
+
         // Check if we're starting a drag from an output port
         QGraphicsItem *item = itemAt(event->scenePos(), QTransform());
         if (auto *portItem = qgraphicsitem_cast<PortGraphicsItem*>(item)) {
-            emit nodeSelected(portItem->nodeItem()->node());
+            // Defer node selection to avoid nested event processing from
+            // property panel widget creation (can cause stuck drag state)
+            Node *node = portItem->nodeItem()->node();
             if (portItem->port().direction == PortDirection::Output) {
                 startConnection(portItem);
+                QTimer::singleShot(0, this, [this, node]() { emit nodeSelected(node); });
                 event->accept();
                 return;
             }
+            emit nodeSelected(node);
         } else if (auto *nodeItem = qgraphicsitem_cast<NodeGraphicsItem*>(item)) {
             emit nodeSelected(nodeItem->node());
         } else if (!item) {
@@ -265,6 +288,113 @@ void NodeScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
         return;
     }
     QGraphicsScene::mouseReleaseEvent(event);
+}
+
+// ---------------------------------------------------------------------------
+// Replace node
+// ---------------------------------------------------------------------------
+void NodeScene::startNodeReplace(const QUuid &nodeId)
+{
+    emit replaceNodeRequested(nodeId);
+}
+
+bool NodeScene::replaceNode(const QUuid &oldNodeId, const QString &newTypeName, QString &errorMsg)
+{
+    auto *oldGraphics = nodeGraphics(oldNodeId);
+    if (!oldGraphics) { errorMsg = "找不到原节点。"; return false; }
+
+    QPointF oldPos = oldGraphics->pos();
+    QVector<Connection> oldConns = m_engine.connectionsForNode(oldNodeId);
+
+    // Quick port-count pre-check
+    Node *tempCheck = NodeRegistry::instance().create(newTypeName);
+    if (!tempCheck) { errorMsg = "未知节点类型: " + newTypeName; return false; }
+
+    int maxIn = -1, maxOut = -1;
+    for (const auto &c : oldConns) {
+        if (c.targetNodeId == oldNodeId) maxIn = qMax(maxIn, c.targetPort);
+        if (c.sourceNodeId == oldNodeId) maxOut = qMax(maxOut, c.sourcePort);
+    }
+
+    bool portErr = false;
+    if (maxIn >= 0 && maxIn >= tempCheck->inputPorts().size()) portErr = true;
+    if (maxOut >= 0 && maxOut >= tempCheck->outputPorts().size()) portErr = true;
+    delete tempCheck;
+    if (portErr) {
+        errorMsg = "新节点的端口数不足以保留原有连线。操作已取消。";
+        return false;
+    }
+
+    // Clone old node for undo
+    Node *oldNode = oldGraphics->node();
+    Node *oldClone = oldNode->clone();
+    oldClone->setId(oldNode->id());
+    for (auto it = oldNode->allParams().constBegin(); it != oldNode->allParams().constEnd(); ++it)
+        oldClone->setParam(it.key(), it.value());
+
+    // Remove old node (engine deletes it, scene removes graphics + connections)
+    removeNodeFromScene(oldNodeId);
+
+    // Create and add new node at same position
+    Node *newNode = NodeRegistry::instance().create(newTypeName);
+    if (!newNode) {
+        delete oldClone;
+        errorMsg = "创建新节点失败。";
+        return false;
+    }
+    addNodeToScene(newNode, oldPos);
+    QUuid newId = newNode->id();
+
+    // Try reconnecting each saved connection
+    QVector<Connection> restored;
+    bool allOk = true;
+    for (const auto &c : oldConns) {
+        Connection nc = c;
+        if (nc.sourceNodeId == oldNodeId) nc.sourceNodeId = newId;
+        if (nc.targetNodeId == oldNodeId) nc.targetNodeId = newId;
+
+        QString connErr;
+        if (m_engine.canConnect(nc.sourceNodeId, nc.sourcePort,
+                                nc.targetNodeId, nc.targetPort, connErr))
+        {
+            auto *connItem = addConnectionToScene(nc.sourceNodeId, nc.sourcePort,
+                                                  nc.targetNodeId, nc.targetPort);
+            if (connItem) {
+                restored.append(nc);
+                continue;
+            }
+        }
+        // Connection failed — rollback
+        allOk = false;
+        break;
+    }
+
+    if (!allOk) {
+        // Remove new node and any connections already added
+        removeNodeFromScene(newId);
+
+        // Restore old node from clone
+        m_engine.addNode(oldClone);
+        auto *newGraphics = new NodeGraphicsItem(oldClone);
+        addItem(newGraphics);
+        newGraphics->setPos(oldPos);
+        m_nodeItems[oldClone->id()] = newGraphics;
+
+        // Restore old connections
+        for (const auto &c : oldConns) {
+            addConnectionToScene(c.sourceNodeId, c.sourcePort,
+                                 c.targetNodeId, c.targetPort);
+        }
+
+        errorMsg = "端口类型不兼容，无法保留全部连线。已撤销替换操作。";
+        emit workflowModified();
+        return false;
+    }
+
+    // Success: new node is in place, old clone is not needed
+    delete oldClone;
+    emit workflowModified();
+    return true;
 }
 
 void NodeScene::drawBackground(QPainter *painter, const QRectF &rect)

@@ -7,6 +7,7 @@ PencilSketchNode::PencilSketchNode()
     m_inputPorts  = { Port("图像", DataType::Any, PortDirection::Input, 0) };
     m_outputPorts = { Port("图像", DataType::Any, PortDirection::Output, 0) };
     m_params["blurRadius"] = 3;
+    setParamBound("blurRadius", 1, 15);
 }
 
 bool PencilSketchNode::process(const QVector<DataPacket> &inputs,

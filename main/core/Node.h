@@ -8,6 +8,14 @@
 #include <QVariant>
 #include <QWidget>
 #include <QVector>
+#include <QPair>
+
+// Parameter boundary definition
+struct ParamBound {
+    QVariant min;
+    QVariant max;
+    double step = 1.0;  // for double spin boxes
+};
 
 class Node : public QObject {
     Q_OBJECT
@@ -34,6 +42,10 @@ public:
     QVariant param(const QString &key, const QVariant &defaultVal = {}) const;
     QMap<QString, QVariant> allParams() const { return m_params; }
 
+    // Parameter bounds — call in subclass constructors after setParam()
+    void setParamBound(const QString &key, const QVariant &min, const QVariant &max, double step = 1.0);
+    ParamBound paramBound(const QString &key) const;
+
     // Optional custom parameter widget (return nullptr for auto-generated)
     virtual QWidget *createParamWidget() { return nullptr; }
 
@@ -59,4 +71,5 @@ protected:
     QVector<Port>        m_inputPorts;
     QVector<Port>        m_outputPorts;
     QMap<QString, QVariant> m_params;
+    QMap<QString, ParamBound> m_paramBounds;
 };

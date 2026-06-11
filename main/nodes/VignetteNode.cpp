@@ -8,6 +8,8 @@ VignetteNode::VignetteNode()
     m_outputPorts = { Port("图像", DataType::Any, PortDirection::Output, 0) };
     m_params["radius"]   = 0.5;
     m_params["strength"] = 1.0;
+    setParamBound("radius", 0.0, 1.0, 0.1);
+    setParamBound("strength", 0.0, 5.0, 0.1);
 }
 
 bool VignetteNode::process(const QVector<DataPacket> &inputs,

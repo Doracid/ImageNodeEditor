@@ -155,6 +155,12 @@ void NodeGraphicsItem::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
 void NodeGraphicsItem::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
 {
     QMenu menu;
+    QAction *replaceAction = menu.addAction("替换节点");
+    QObject::connect(replaceAction, &QAction::triggered, [this]() {
+        NodeScene *s = qobject_cast<NodeScene*>(scene());
+        if (s) s->startNodeReplace(nodeId());
+    });
+    menu.addSeparator();
     QAction *deleteAction = menu.addAction("删除节点");
     QObject::connect(deleteAction, &QAction::triggered, [this]() {
         NodeScene *s = qobject_cast<NodeScene*>(scene());

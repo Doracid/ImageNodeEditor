@@ -23,3 +23,17 @@ bool Node::validate(QString &errorMsg)
     Q_UNUSED(errorMsg);
     return true;
 }
+
+void Node::setParamBound(const QString &key, const QVariant &min, const QVariant &max, double step)
+{
+    ParamBound b;
+    b.min = min;
+    b.max = max;
+    b.step = step;
+    m_paramBounds[key] = b;
+}
+
+ParamBound Node::paramBound(const QString &key) const
+{
+    return m_paramBounds.value(key, ParamBound());
+}

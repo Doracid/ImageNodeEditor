@@ -8,6 +8,8 @@ CartoonNode::CartoonNode()
     m_outputPorts = { Port("图像", DataType::Any, PortDirection::Output, 0) };
     m_params["edgeThreshold"] = 80;
     m_params["levels"]        = 6;
+    setParamBound("edgeThreshold", 0, 255);
+    setParamBound("levels", 2, 16);
 }
 
 bool CartoonNode::process(const QVector<DataPacket> &inputs,

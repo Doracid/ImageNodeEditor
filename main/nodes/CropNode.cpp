@@ -10,6 +10,10 @@ CropNode::CropNode()
     m_params["y"] = 0;
     m_params["width"]  = 256;
     m_params["height"] = 256;
+    setParamBound("x", 0, 99999);
+    setParamBound("y", 0, 99999);
+    setParamBound("width", 1, 99999);
+    setParamBound("height", 1, 99999);
 }
 
 bool CropNode::process(const QVector<DataPacket> &inputs,

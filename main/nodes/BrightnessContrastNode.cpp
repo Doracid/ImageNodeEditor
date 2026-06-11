@@ -8,6 +8,8 @@ BrightnessContrastNode::BrightnessContrastNode()
     m_outputPorts = { Port("图像", DataType::Any, PortDirection::Output, 0) };
     m_params["brightness"] = 0;
     m_params["contrast"]   = 1.0;
+    setParamBound("brightness", -255, 255);
+    setParamBound("contrast", 0.0, 3.0, 0.1);
 }
 
 bool BrightnessContrastNode::process(const QVector<DataPacket> &inputs,

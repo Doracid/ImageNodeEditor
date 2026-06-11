@@ -7,6 +7,7 @@ ThresholdNode::ThresholdNode()
     m_inputPorts  = { Port("图像", DataType::Any, PortDirection::Input, 0) };
     m_outputPorts = { Port("图像", DataType::Any, PortDirection::Output, 0) };
     m_params["level"] = 128;
+    setParamBound("level", 0, 255);
 }
 
 bool ThresholdNode::process(const QVector<DataPacket> &inputs,

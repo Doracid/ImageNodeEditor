@@ -7,6 +7,7 @@ GammaNode::GammaNode()
     m_inputPorts  = { Port("图像", DataType::Any, PortDirection::Input, 0) };
     m_outputPorts = { Port("图像", DataType::Any, PortDirection::Output, 0) };
     m_params["gamma"] = 1.0;
+    setParamBound("gamma", 0.1, 5.0, 0.1);
 }
 
 bool GammaNode::process(const QVector<DataPacket> &inputs,

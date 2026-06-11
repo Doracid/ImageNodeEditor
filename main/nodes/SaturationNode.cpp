@@ -7,6 +7,7 @@ SaturationNode::SaturationNode()
     m_inputPorts  = { Port("图像", DataType::Any, PortDirection::Input, 0) };
     m_outputPorts = { Port("图像", DataType::Any, PortDirection::Output, 0) };
     m_params["saturation"] = 1.0;
+    setParamBound("saturation", 0.0, 3.0, 0.1);
 }
 
 bool SaturationNode::process(const QVector<DataPacket> &inputs,

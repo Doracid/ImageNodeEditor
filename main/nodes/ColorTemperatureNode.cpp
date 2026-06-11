@@ -7,6 +7,7 @@ ColorTemperatureNode::ColorTemperatureNode()
     m_inputPorts  = { Port("图像", DataType::Any, PortDirection::Input, 0) };
     m_outputPorts = { Port("图像", DataType::Any, PortDirection::Output, 0) };
     m_params["temperature"] = 0.0;
+    setParamBound("temperature", -1.0, 1.0, 0.1);
 }
 
 bool ColorTemperatureNode::process(const QVector<DataPacket> &inputs,

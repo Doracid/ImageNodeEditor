@@ -15,6 +15,7 @@ NodeView::NodeView(NodeScene *scene, QWidget *parent)
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setBackgroundBrush(QBrush(QColor(240, 240, 245)));
+    setFocusPolicy(Qt::StrongFocus);
 }
 
 void NodeView::wheelEvent(QWheelEvent *event)

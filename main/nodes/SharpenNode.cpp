@@ -7,6 +7,7 @@ SharpenNode::SharpenNode()
     m_inputPorts  = { Port("图像", DataType::Any, PortDirection::Input, 0) };
     m_outputPorts = { Port("图像", DataType::Any, PortDirection::Output, 0) };
     m_params["strength"] = 1.0;
+    setParamBound("strength", 0.0, 10.0, 0.1);
 }
 
 bool SharpenNode::process(const QVector<DataPacket> &inputs,

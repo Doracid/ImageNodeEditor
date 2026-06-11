@@ -7,6 +7,7 @@ PixelateNode::PixelateNode()
     m_inputPorts  = { Port("图像", DataType::Any, PortDirection::Input, 0) };
     m_outputPorts = { Port("图像", DataType::Any, PortDirection::Output, 0) };
     m_params["blockSize"] = 8;
+    setParamBound("blockSize", 2, 200);
 }
 
 bool PixelateNode::process(const QVector<DataPacket> &inputs,

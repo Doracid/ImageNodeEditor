@@ -8,6 +8,8 @@ EdgeDetectionNode::EdgeDetectionNode()
     m_outputPorts = { Port("边缘", DataType::GrayImage, PortDirection::Output, 0) };
     m_params["lowThreshold"]  = 50;
     m_params["highThreshold"] = 150;
+    setParamBound("lowThreshold", 0, 255);
+    setParamBound("highThreshold", 0, 255);
 }
 
 bool EdgeDetectionNode::process(const QVector<DataPacket> &inputs,

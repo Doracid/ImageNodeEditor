@@ -7,6 +7,7 @@ GaussianBlurNode::GaussianBlurNode()
     m_inputPorts  = { Port("图像", DataType::Any, PortDirection::Input, 0) };
     m_outputPorts = { Port("图像", DataType::Any, PortDirection::Output, 0) };
     m_params["radius"] = 5;
+    setParamBound("radius", 1, 200);
 }
 
 bool GaussianBlurNode::process(const QVector<DataPacket> &inputs,

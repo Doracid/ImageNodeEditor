@@ -43,6 +43,16 @@ static QString paramLabel(const QString &key)
         {"posY",         "位置 Y"},
         {"lowThreshold", "低阈值"},
         {"highThreshold","高阈值"},
+        {"saturation",   "饱和度"},
+        {"gamma",        "伽马值"},
+        {"level",        "阈值等级"},
+        {"intensity",    "强度"},
+        {"strength",     "锐化强度"},
+        {"rotation",     "旋转角度"},
+        {"temperature",  "色温"},
+        {"fade",         "褪色程度"},
+        {"blockSize",    "像素块大小"},
+        {"levels",       "颜色层级"},
     };
     return m.value(key, key);
 }
@@ -173,7 +183,7 @@ void PropertyPanel::rebuildUI()
 
             connect(btn, &QPushButton::clicked, this, [this, le, key]() {
                 QString path = QFileDialog::getOpenFileName(
-                    this, "打开文件", le->text(), "图片 (*.png *.jpg *.jpeg *.bmp *.tif)");
+                    this, "打开文件", le->text(), "图片 (*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.gif *.webp *.svg);;所有文件 (*.*)");
                 if (!path.isEmpty()) {
                     le->setText(path);
                     if (m_currentNode) {
@@ -209,13 +219,19 @@ void PropertyPanel::rebuildUI()
         }
 
         // ------------------------------------------------------------
-        // Double → double spin box
+        // Double → double spin box (with bounds)
         // ------------------------------------------------------------
         if (val.type() == QVariant::Double) {
             auto *sb = new QDoubleSpinBox();
-            sb->setRange(-10000, 10000);
+            ParamBound b = node->paramBound(key);
+            if (b.min.isValid() && b.max.isValid()) {
+                sb->setRange(b.min.toDouble(), b.max.toDouble());
+                sb->setSingleStep(b.step);
+            } else {
+                sb->setRange(-10000, 10000);
+                sb->setSingleStep(0.1);
+            }
             sb->setValue(val.toDouble());
-            sb->setSingleStep(0.1);
             connect(sb, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, key](double v) {
                 if (m_currentNode) { m_currentNode->setParam(key, v); emit paramChanged(); }
             });
@@ -225,11 +241,16 @@ void PropertyPanel::rebuildUI()
         }
 
         // ------------------------------------------------------------
-        // Int → spin box
+        // Int → spin box (with bounds)
         // ------------------------------------------------------------
         if (val.type() == QVariant::Int) {
             auto *sb = new QSpinBox();
-            sb->setRange(-100000, 100000);
+            ParamBound b = node->paramBound(key);
+            if (b.min.isValid() && b.max.isValid()) {
+                sb->setRange(b.min.toInt(), b.max.toInt());
+            } else {
+                sb->setRange(-100000, 100000);
+            }
             sb->setValue(val.toInt());
             connect(sb, QOverload<int>::of(&QSpinBox::valueChanged), this, [this, key](int v) {
                 if (m_currentNode) { m_currentNode->setParam(key, v); emit paramChanged(); }

@@ -7,6 +7,7 @@ SepiaNode::SepiaNode()
     m_inputPorts  = { Port("图像", DataType::Any, PortDirection::Input, 0) };
     m_outputPorts = { Port("图像", DataType::Any, PortDirection::Output, 0) };
     m_params["intensity"] = 1.0;
+    setParamBound("intensity", 0.0, 1.0, 0.1);
 }
 
 bool SepiaNode::process(const QVector<DataPacket> &inputs,

@@ -7,6 +7,7 @@ FadeNode::FadeNode()
     m_inputPorts  = { Port("图像", DataType::Any, PortDirection::Input, 0) };
     m_outputPorts = { Port("图像", DataType::Any, PortDirection::Output, 0) };
     m_params["fade"] = 0.5;
+    setParamBound("fade", 0.0, 1.0, 0.1);
 }
 
 bool FadeNode::process(const QVector<DataPacket> &inputs,

@@ -3,6 +3,7 @@
 #include <QVBoxLayout>
 #include <QApplication>
 #include <QStyle>
+#include <QMouseEvent>
 
 NodeListPanel::NodeListPanel(QWidget *parent)
     : QWidget(parent)
@@ -43,6 +44,8 @@ void NodeListPanel::populateButtons()
     }
     m_debugLabel->setText(QString("已注册 %1 种节点类型").arg(totalTypes));
 
+    m_buttons.clear();
+
     for (auto it = categories.constBegin(); it != categories.constEnd(); ++it) {
         const QString &catName = it->first;
         const auto &entries = it->second;
@@ -57,15 +60,14 @@ void NodeListPanel::populateButtons()
             btn->setToolTip(entry.description);
             btn->setCursor(Qt::PointingHandCursor);
             btn->setMinimumHeight(34);
-            btn->setStyleSheet(
-                "QPushButton { text-align: left; padding: 6px 10px; border: 1px solid #aaa; "
-                "border-radius: 4px; background: #f0f0f0; font-size: 10pt; }"
-                "QPushButton:hover { background: #d0e0ff; border-color: #3366cc; }");
+            m_buttons.append(btn);
 
             QString typeName = entry.typeName;
             connect(btn, &QPushButton::clicked, this, [this, typeName]() {
                 m_debugLabel->setText("已点击: " + typeName);
-                if (m_callback) {
+                if (m_pickerMode && m_replaceCallback) {
+                    m_replaceCallback(typeName);
+                } else if (m_callback) {
                     m_callback(typeName);
                 }
             });
@@ -75,4 +77,63 @@ void NodeListPanel::populateButtons()
     }
 
     m_layout->addStretch();
+    updateButtonStyles();
+}
+
+void NodeListPanel::updateButtonStyles()
+{
+    for (auto *btn : m_buttons) {
+        if (m_pickerMode) {
+            btn->setStyleSheet(
+                "QPushButton { text-align: left; padding: 6px 10px; border: 2px solid #4CAF50; "
+                "border-radius: 4px; background: #e8f5e9; font-size: 10pt; }"
+                "QPushButton:hover { background: #c8e6c9; border-color: #2E7D32; }");
+        } else {
+            btn->setStyleSheet(
+                "QPushButton { text-align: left; padding: 6px 10px; border: 1px solid #aaa; "
+                "border-radius: 4px; background: #f0f0f0; font-size: 10pt; }"
+                "QPushButton:hover { background: #d0e0ff; border-color: #3366cc; }");
+        }
+    }
+}
+
+void NodeListPanel::enterPickerMode(ReplaceNodeCallback cb)
+{
+    m_pickerMode = true;
+    m_replaceCallback = cb;
+
+    if (!m_pickerLabel) {
+        m_pickerLabel = new QLabel("🔍 选择替换的节点类型  [点击取消]");
+        m_pickerLabel->setStyleSheet(
+            "background: #4CAF50; color: white; font-weight: bold; "
+            "padding: 8px; border-radius: 4px; font-size: 10pt;");
+        m_pickerLabel->setCursor(Qt::PointingHandCursor);
+        m_pickerLabel->installEventFilter(this);
+        // Insert at top, after title
+        m_layout->insertWidget(2, m_pickerLabel);
+    }
+    m_pickerLabel->show();
+    m_debugLabel->setText("点击一个节点类型完成替换");
+
+    updateButtonStyles();
+}
+
+void NodeListPanel::exitPickerMode()
+{
+    m_pickerMode = false;
+    m_replaceCallback = nullptr;
+    if (m_pickerLabel) m_pickerLabel->hide();
+    m_debugLabel->setText(QString("已注册 %1 种节点类型").arg(m_buttons.size()));
+    updateButtonStyles();
+}
+
+bool NodeListPanel::eventFilter(QObject *obj, QEvent *event)
+{
+    if (obj == m_pickerLabel && event->type() == QEvent::MouseButtonRelease) {
+        if (m_pickerMode) {
+            emit pickerCancelled();
+            return true;
+        }
+    }
+    return QWidget::eventFilter(obj, event);
 }

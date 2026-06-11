@@ -50,6 +50,9 @@ public:
     // Delete currently selected items
     void deleteSelected();
 
+    // Replace node (keep connections if port types are compatible)
+    bool replaceNode(const QUuid &oldNodeId, const QString &newTypeName, QString &errorMsg);
+
 signals:
     void nodeSelected(Node *node);
     void nodeDeselected();
@@ -58,6 +61,10 @@ signals:
     void workflowModified();
     void showPreview(Node *node);
     void connectionError(const QString &msg);
+    void replaceNodeRequested(QUuid nodeId);
+
+public slots:
+    void startNodeReplace(const QUuid &nodeId);
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;

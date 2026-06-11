@@ -101,6 +101,13 @@ int main(int argc, char *argv[])
 #include "nodes/VignetteNode.h"
 #include "nodes/PencilSketchNode.h"
 #include "nodes/CartoonNode.h"
+#include "nodes/ExposureNode.h"
+#include "nodes/VibranceNode.h"
+#include "nodes/WhiteBalanceNode.h"
+#include "nodes/HighlightsShadowsNode.h"
+#include "nodes/WhitesBlacksNode.h"
+#include "nodes/ClarityNode.h"
+#include "nodes/ToneCurveNode.h"
 
 void registerAllNodeTypes()
 {
@@ -132,4 +139,11 @@ void registerAllNodeTypes()
     reg.registerType("VignetteNode",      "风格化",    "暗角",        "添加画面边缘暗角",            []() -> Node* { return new VignetteNode(); });
     reg.registerType("PencilSketchNode",  "风格化",    "铅笔画",      "铅笔素描画效果",             []() -> Node* { return new PencilSketchNode(); });
     reg.registerType("CartoonNode",       "风格化",    "卡通风格",    "色彩量化+边缘描边卡通效果",   []() -> Node* { return new CartoonNode(); });
+    reg.registerType("ExposureNode",       "色彩调整",  "曝光",        "EV 曝光补偿",                 []() -> Node* { return new ExposureNode(); });
+    reg.registerType("VibranceNode",       "色彩调整",  "自然饱和度",  "智能饱和度增强（保护肤色）", []() -> Node* { return new VibranceNode(); });
+    reg.registerType("WhiteBalanceNode",   "色彩调整",  "白平衡",      "色温/色调/自动白平衡",       []() -> Node* { return new WhiteBalanceNode(); });
+    reg.registerType("HighlightsShadowsNode", "色彩调整", "高光/阴影","独立调整高光和阴影区域",     []() -> Node* { return new HighlightsShadowsNode(); });
+    reg.registerType("WhitesBlacksNode",   "色彩调整",  "白色/黑色",   "调整白点和黑点（端点裁剪）", []() -> Node* { return new WhitesBlacksNode(); });
+    reg.registerType("ClarityNode",        "滤波",      "清晰度",      "中频对比度增强",              []() -> Node* { return new ClarityNode(); });
+    reg.registerType("ToneCurveNode",      "色彩调整",  "色调曲线",    "256 级 LUT 色调曲线",        []() -> Node* { return new ToneCurveNode(); });
 }

@@ -1,22 +1,22 @@
-#include "HueShiftNode.h"
+#include "ExposureNode.h"
 #include "algorithms/ImageAlgorithm.h"
 
-HueShiftNode::HueShiftNode()
-    : Node("色相偏移")
+ExposureNode::ExposureNode()
+    : Node("曝光")
 {
     m_inputPorts  = { Port("图像", DataType::Any, PortDirection::Input, 0) };
     m_outputPorts = { Port("图像", DataType::Any, PortDirection::Output, 0) };
-    m_params["angle"] = 0;
-    setParamBound("angle", 0, 359);
+    m_params["ev"] = 0.0;
+    setParamBound("ev", -5.0, 5.0, 0.1);
 }
 
-bool HueShiftNode::process(const QVector<DataPacket> &inputs,
+bool ExposureNode::process(const QVector<DataPacket> &inputs,
                            QVector<DataPacket> &outputs, QString &errorMsg)
 {
     if (!inputs[0].isValid()) { errorMsg = "没有输入图像。"; return false; }
-    int angle = m_params["angle"].toInt();
-    QImage result = ImageAlgorithm::hueShift(inputs[0].image(), angle);
-    if (result.isNull()) { errorMsg = "色相偏移失败。"; return false; }
+    double ev = m_params["ev"].toDouble();
+    QImage result = ImageAlgorithm::exposure(inputs[0].image(), ev);
+    if (result.isNull()) { errorMsg = "曝光调整失败。"; return false; }
     outputs[0] = DataPacket(result);
     return true;
 }

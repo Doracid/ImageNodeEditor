@@ -3,6 +3,7 @@
 #include <QMainWindow>
 #include <QPointer>
 #include <QTabWidget>
+#include <QUuid>
 
 class NodeScene;
 class NodeView;
@@ -32,6 +33,9 @@ private slots:
     void onLoadWorkflow();
     void onClearAll();
     void onShowAbout();
+    void onStartReplace(const QUuid &nodeId);
+    void onFinishReplace(const QString &typeName);
+    void onCancelReplace();
 
 private:
     void setupMenuBar();
@@ -45,4 +49,5 @@ private:
     PropertyPanel  *m_propertyPanel;
     QTabWidget     *m_rightTabs;
     PreviewDialog  *m_previewDialog = nullptr;
+    QUuid           m_replaceNodeId;
 };
