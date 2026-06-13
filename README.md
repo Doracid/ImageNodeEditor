@@ -10,14 +10,28 @@
 
 ## 构建步骤
 
-1. 安装 [Qt 5.15.2](https://www.qt.io/download-open-source)（选择 MSVC 2019/2022 版本）
-2. 在 Visual Studio 中安装 **Qt VS Tools** 扩展（扩展 → 管理扩展 → 搜索 "Qt Visual Studio Tools"）
-3. 打开 Qt VS Tools → Qt Options，添加 Qt5 路径（指向 Qt 安装目录，例如 `C:\Qt\5.15.2\msvc2019_64`）
-4. 打开 `main.sln`
-5. 在解决方案资源管理器中右键 `main` 项目 → **重新扫描 Qt 模块**
-6. 选择 **Release | x64** 配置 → 生成解决方案
+### 方式一：CMake（推荐）
 
-> 如果遇到 Qt 模块识别失败，检查 Qt VS Tools 中是否正确配置了 Qt5 路径，并在项目属性 → Qt Settings → Qt Modules 中确认包含 `core;gui;widgets`。
+1. 确保已安装 [Qt 5.15.2](https://www.qt.io/download-open-source) 或通过 conda 安装：`conda install qt-main`
+2. 在项目根目录执行：
+
+```bash
+mkdir build && cd build
+cmake .. -DCMAKE_PREFIX_PATH=/path/to/Qt5
+cmake --build . --config Release
+```
+
+3. 构建完成后，CMake 会自动复制 Qt 运行时 DLL 及依赖（`libpng16.dll`、`libjpeg.dll`、ICU 等）到输出目录
+4. 直接运行 `build/Release/ImageNodeEditor.exe`
+
+### 方式二：Visual Studio + CMake
+
+1. 安装 [Qt 5.15.2](https://www.qt.io/download-open-source)（选择 MSVC 2019/2022 版本）
+2. 在 Visual Studio 中打开 `main/CMakeLists.txt` 作为 CMake 项目
+3. 选择 **Release | x64** 配置 → 生成
+4. 构建后会自动部署所有运行时依赖，运行 `build/Release/ImageNodeEditor.exe`
+
+> **注意**：使用 conda 安装的 Qt5 时，DLL 带有 `_conda` 后缀。构建时会自动将其复制到输出目录。`imageformats/` 图片格式插件也会一同部署，确保 PNG、JPEG、TIFF、WebP 等格式正常加载。
 
 ## 项目结构
 

@@ -31,6 +31,25 @@ set(SOURCES
     main/nodes/WatermarkNode.cpp
     main/nodes/RotateNode.cpp
     main/nodes/InvertNode.cpp
+    main/nodes/SaturationNode.cpp
+    main/nodes/HueShiftNode.cpp
+    main/nodes/GammaNode.cpp
+    main/nodes/ThresholdNode.cpp
+    main/nodes/SepiaNode.cpp
+    main/nodes/SharpenNode.cpp
+    main/nodes/ColorTemperatureNode.cpp
+    main/nodes/FadeNode.cpp
+    main/nodes/PixelateNode.cpp
+    main/nodes/VignetteNode.cpp
+    main/nodes/PencilSketchNode.cpp
+    main/nodes/CartoonNode.cpp
+    main/nodes/ExposureNode.cpp
+    main/nodes/VibranceNode.cpp
+    main/nodes/WhiteBalanceNode.cpp
+    main/nodes/HighlightsShadowsNode.cpp
+    main/nodes/WhitesBlacksNode.cpp
+    main/nodes/ClarityNode.cpp
+    main/nodes/ToneCurveNode.cpp
     main/gui/MainWindow.cpp
     main/gui/NodeScene.cpp
     main/gui/NodeView.cpp
@@ -67,6 +86,25 @@ set(HEADERS
     main/nodes/WatermarkNode.h
     main/nodes/RotateNode.h
     main/nodes/InvertNode.h
+    main/nodes/SaturationNode.h
+    main/nodes/HueShiftNode.h
+    main/nodes/GammaNode.h
+    main/nodes/ThresholdNode.h
+    main/nodes/SepiaNode.h
+    main/nodes/SharpenNode.h
+    main/nodes/ColorTemperatureNode.h
+    main/nodes/FadeNode.h
+    main/nodes/PixelateNode.h
+    main/nodes/VignetteNode.h
+    main/nodes/PencilSketchNode.h
+    main/nodes/CartoonNode.h
+    main/nodes/ExposureNode.h
+    main/nodes/VibranceNode.h
+    main/nodes/WhiteBalanceNode.h
+    main/nodes/HighlightsShadowsNode.h
+    main/nodes/WhitesBlacksNode.h
+    main/nodes/ClarityNode.h
+    main/nodes/ToneCurveNode.h
     main/gui/MainWindow.h
     main/gui/NodeScene.h
     main/gui/NodeView.h
@@ -89,3 +127,37 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/main)
+
+# 构建后自动复制 Qt DLL 及插件到输出目录（conda Qt5 部署）
+set(QT_DLL_DIR "$ENV{CONDA_PREFIX}/Library/bin")
+if(NOT QT_DLL_DIR OR NOT EXISTS "${QT_DLL_DIR}")
+    set(QT_DLL_DIR "C:/Users/sunli/anaconda3/Library/bin")
+endif()
+get_filename_component(QT_LIB_DIR "${QT_DLL_DIR}" DIRECTORY)  # Library/
+set(QT_PLUGIN_DIR "${QT_LIB_DIR}/plugins")
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${QT_DLL_DIR}/Qt5Core_conda.dll"
+        "${QT_DLL_DIR}/Qt5Gui_conda.dll"
+        "${QT_DLL_DIR}/Qt5Widgets_conda.dll"
+        "${QT_DLL_DIR}/libpng16.dll"
+        "${QT_DLL_DIR}/zlib.dll"
+        "${QT_DLL_DIR}/libjpeg.dll"
+        "${QT_DLL_DIR}/zstd.dll"
+        "${QT_DLL_DIR}/icuin73.dll"
+        "${QT_DLL_DIR}/icuuc73.dll"
+        "${QT_DLL_DIR}/icudt73.dll"
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/platforms
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${QT_PLUGIN_DIR}/platforms/qwindows.dll"
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/platforms/
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/imageformats
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${QT_PLUGIN_DIR}/imageformats"
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/imageformats
+    COMMENT "复制 Qt DLL 及依赖到输出目录"
+)
