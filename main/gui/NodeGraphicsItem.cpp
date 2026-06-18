@@ -14,11 +14,14 @@
 
 static QColor categoryColor(const QString &cat)
 {
-    if (cat == "Input")      return QColor(76, 175, 80);   // green
-    if (cat == "Output")     return QColor(244, 67, 54);   // red
-    if (cat == "Filter")     return QColor(33, 150, 243);  // blue
-    if (cat == "Conversion") return QColor(255, 152, 0);   // orange
-    if (cat == "MultiPort")  return QColor(156, 39, 176);  // purple
+    if (cat == "Input")                return QColor(76, 175, 80);   // green
+    if (cat == "Output")               return QColor(244, 67, 54);   // red
+    if (cat == "Filter" || cat == "滤波")  return QColor(33, 150, 243);  // blue
+    if (cat == "Conversion" || cat == "转换") return QColor(255, 152, 0); // orange
+    if (cat == "MultiPort")            return QColor(156, 39, 176);  // purple
+    if (cat == "Stylize" || cat == "风格化")  return QColor(233, 30, 99);  // pink
+    if (cat == "色彩调整")             return QColor(255, 193, 7);   // amber/gold
+    if (cat == "几何变换")             return QColor(0, 150, 136);   // teal
     return QColor(158, 158, 158); // gray
 }
 
