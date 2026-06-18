@@ -56,6 +56,7 @@ set(SOURCES
     main/nodes/OilPaintingNode.cpp
     main/nodes/PolarCoordsNode.cpp
     main/nodes/LensFlareNode.cpp
+    main/nodes/MetalStyleNode.cpp
     main/gui/MainWindow.cpp
     main/gui/NodeScene.cpp
     main/gui/NodeView.cpp
@@ -117,6 +118,7 @@ set(HEADERS
     main/nodes/OilPaintingNode.h
     main/nodes/PolarCoordsNode.h
     main/nodes/LensFlareNode.h
+    main/nodes/MetalStyleNode.h
     main/gui/MainWindow.h
     main/gui/NodeScene.h
     main/gui/NodeView.h

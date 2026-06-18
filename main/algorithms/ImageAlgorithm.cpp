@@ -445,6 +445,126 @@ QImage ImageAlgorithm::threshold(const QImage &src, int level)
 }
 
 // ====================================================================
+// Binarize (multi-mode)
+// ====================================================================
+QImage ImageAlgorithm::binarize(const QImage &src, int mode, int level,
+                                int blockSize, double c)
+{
+    if (src.isNull()) return {};
+    QImage gray = toGrayscale(src);
+    int w = gray.width(), h = gray.height();
+
+    if (mode == 0) {
+        // Global threshold
+        return threshold(src, level);
+    }
+
+    if (mode == 1) {
+        // OTSU: find threshold that maximizes between-class variance
+        qint64 hist[256] = {0};
+        for (int y = 0; y < h; ++y) {
+            const uchar *line = gray.scanLine(y);
+            for (int x = 0; x < w; ++x)
+                hist[line[x]]++;
+        }
+        qint64 total = w * h;
+        qint64 sum = 0;
+        for (int i = 0; i < 256; ++i) sum += i * hist[i];
+        qint64 sumB = 0, wB = 0;
+        double maxVar = 0;
+        int otsuLevel = 0;
+        for (int i = 0; i < 256; ++i) {
+            wB += hist[i];
+            if (wB == 0) continue;
+            qint64 wF = total - wB;
+            if (wF == 0) break;
+            sumB += i * hist[i];
+            double meanB = (double)sumB / wB;
+            double meanF = (double)(sum - sumB) / wF;
+            double var = (double)wB * wF * (meanB - meanF) * (meanB - meanF);
+            if (var > maxVar) { maxVar = var; otsuLevel = i; }
+        }
+        QImage dst(gray.size(), QImage::Format_Grayscale8);
+        for (int y = 0; y < h; ++y) {
+            const uchar *srcLine = gray.scanLine(y);
+            uchar *dstLine = dst.scanLine(y);
+            for (int x = 0; x < w; ++x)
+                dstLine[x] = (srcLine[x] >= otsuLevel) ? 255 : 0;
+        }
+        return dst;
+    }
+
+    // Adaptive modes
+    if (blockSize < 3) blockSize = 3;
+    if (blockSize % 2 == 0) blockSize++;
+    int half = blockSize / 2;
+
+    if (mode == 2) {
+        // Adaptive mean: threshold = local mean - c
+        QImage dst(gray.size(), QImage::Format_Grayscale8);
+        for (int y = 0; y < h; ++y) {
+            const uchar *srcLine = gray.scanLine(y);
+            uchar *dstLine = dst.scanLine(y);
+            for (int x = 0; x < w; ++x) {
+                int sum = 0, count = 0;
+                for (int dy = -half; dy <= half; ++dy) {
+                    int ny = qBound(0, y + dy, h - 1);
+                    const uchar *row = gray.scanLine(ny);
+                    for (int dx = -half; dx <= half; ++dx) {
+                        int nx = qBound(0, x + dx, w - 1);
+                        sum += row[nx];
+                        count++;
+                    }
+                }
+                double mean = (double)sum / count;
+                dstLine[x] = (srcLine[x] >= mean - c) ? 255 : 0;
+            }
+        }
+        return dst;
+    }
+
+    if (mode == 3) {
+        // Adaptive gaussian: weighted local mean - c using gaussian kernel
+        // Precompute gaussian kernel
+        QVector<double> kernel(blockSize);
+        double sigma = blockSize / 6.0;
+        double sumK = 0;
+        for (int i = 0; i < blockSize; ++i) {
+            double dx = i - half;
+            kernel[i] = qExp(-(dx * dx) / (2.0 * sigma * sigma));
+            sumK += kernel[i];
+        }
+        for (int i = 0; i < blockSize; ++i) kernel[i] /= sumK;
+
+        QImage dst(gray.size(), QImage::Format_Grayscale8);
+        for (int y = 0; y < h; ++y) {
+            const uchar *srcLine = gray.scanLine(y);
+            uchar *dstLine = dst.scanLine(y);
+            for (int x = 0; x < w; ++x) {
+                double weightedSum = 0, weightTotal = 0;
+                for (int dy = -half; dy <= half; ++dy) {
+                    int ny = qBound(0, y + dy, h - 1);
+                    const uchar *row = gray.scanLine(ny);
+                    double ky = kernel[dy + half];
+                    for (int dx = -half; dx <= half; ++dx) {
+                        int nx = qBound(0, x + dx, w - 1);
+                        double kx = kernel[dx + half];
+                        weightedSum += ky * kx * row[nx];
+                        weightTotal += ky * kx;
+                    }
+                }
+                double mean = weightedSum / weightTotal;
+                dstLine[x] = (srcLine[x] >= mean - c) ? 255 : 0;
+            }
+        }
+        return dst;
+    }
+
+    // Fallback to global
+    return threshold(src, level);
+}
+
+// ====================================================================
 // Sepia
 // ====================================================================
 QImage ImageAlgorithm::sepia(const QImage &src, double intensity)
@@ -1714,6 +1834,213 @@ QImage ImageAlgorithm::lensFlare(const QImage &src, double cx, double cy,
             int g = clamp((int)(255 - (255 - qGreen(sp)) * (1 - blend * qGreen(fp)/255.0)));
             int b = clamp((int)(255 - (255 - qBlue(sp)) * (1 - blend * qBlue(fp)/255.0)));
             dLine[x] = qRgba(r, g, b, qAlpha(sp));
+        }
+    }
+    return result;
+}
+
+// ====================================================================
+// Metal Emboss — metallic color mapping + relief emboss
+// ====================================================================
+QImage ImageAlgorithm::metalEmboss(const QImage &src, int metalType,
+                                    bool concave, double depth, double blend,
+                                    double texture, double gloss)
+{
+    if (src.isNull()) return {};
+    depth = qBound(1.0, depth, 20.0);
+    blend = qBound(0.0, blend, 1.0);
+    texture = qBound(0.0, texture, 1.0);
+    gloss = qBound(0.0, gloss, 1.0);
+
+    QImage input = src.convertToFormat(QImage::Format_ARGB32);
+    int w = input.width(), h = input.height();
+
+    // Convert to grayscale
+    QImage gray(w, h, QImage::Format_Grayscale8);
+    for (int y = 0; y < h; ++y) {
+        const QRgb *sLine = reinterpret_cast<const QRgb*>(input.constScanLine(y));
+        uchar *gLine = gray.scanLine(y);
+        for (int x = 0; x < w; ++x) {
+            QRgb p = sLine[x];
+            gLine[x] = (uchar)((qRed(p)*299 + qGreen(p)*587 + qBlue(p)*114) / 1000);
+        }
+    }
+
+    // Directional emboss kernel (top-left lighting):
+    //   -1 -1  0
+    //   -1  0  1
+    //    0  1  1
+    QImage emboss(w, h, QImage::Format_Grayscale8);
+    int sign = concave ? -1 : 1;
+    for (int y = 1; y < h - 1; ++y) {
+        uchar *eLine = emboss.scanLine(y);
+        for (int x = 1; x < w - 1; ++x) {
+            int v = 0;
+            v += -1 * gray.scanLine(y-1)[x-1];
+            v += -1 * gray.scanLine(y-1)[x];
+            v +=  0 * gray.scanLine(y-1)[x+1];
+            v += -1 * gray.scanLine(y)[x-1];
+            v +=  0 * gray.scanLine(y)[x];
+            v +=  1 * gray.scanLine(y)[x+1];
+            v +=  0 * gray.scanLine(y+1)[x-1];
+            v +=  1 * gray.scanLine(y+1)[x];
+            v +=  1 * gray.scanLine(y+1)[x+1];
+            int val = (int)(v * sign * depth / 6.0) + 128;
+            eLine[x] = (uchar)qBound(0, val, 255);
+        }
+    }
+    // Fill border with 128 (neutral)
+    for (int x = 0; x < w; ++x) {
+        emboss.scanLine(0)[x] = 128;
+        emboss.scanLine(h-1)[x] = 128;
+    }
+    for (int y = 0; y < h; ++y) {
+        emboss.scanLine(y)[0] = 128;
+        emboss.scanLine(y)[w-1] = 128;
+    }
+
+    // Apply S-curve contrast stretch to emboss for metallic specular response
+    for (int y = 0; y < h; ++y) {
+        uchar *eLine = emboss.scanLine(y);
+        for (int x = 0; x < w; ++x) {
+            double t = eLine[x] / 255.0;
+            // Smoothstep S-curve: deepens shadows, sharpens highlights
+            t = t * t * (3.0 - 2.0 * t);
+            // Boost highlights above 75% for specular sharpness
+            if (t > 0.75) t = t + (t - 0.75) * 1.5;
+            eLine[x] = (uchar)qBound(0, (int)(t * 255.0), 255);
+        }
+    }
+
+    // Metal color gradient stops — designed for metallic specular response
+    QVector<QPair<double, QColor>> stops;
+    switch (metalType) {
+    case 1: // Silver — cold, highly reflective
+        stops = { {0.0, QColor(18,18,22)}, {0.2, QColor(65,65,70)},
+                  {0.4, QColor(130,130,135)}, {0.6, QColor(195,195,200)},
+                  {0.78, QColor(235,235,238)}, {1.0, QColor(255,255,255)} };
+        break;
+    case 2: // 青铜色 — blue-green patina
+        stops = { {0.0, QColor(10,40,30)}, {0.15, QColor(22,68,55)},
+                  {0.3, QColor(38,100,78)}, {0.45, QColor(55,140,110)},
+                  {0.6, QColor(85,180,148)}, {0.75, QColor(135,215,185)},
+                  {0.88, QColor(175,237,215)}, {1.0, QColor(205,248,235)} };
+        break;
+    case 3: // 古铜色 — aged bronze
+        stops = { {0.0, QColor(35,16,6)}, {0.15, QColor(72,35,14)},
+                  {0.3, QColor(115,62,24)}, {0.45, QColor(160,100,38)},
+                  {0.6, QColor(200,145,58)}, {0.75, QColor(235,188,95)},
+                  {0.88, QColor(248,225,155)}, {1.0, QColor(255,245,210)} };
+        break;
+    default: // Gold — rich yellow-gold with sharp specular knee
+        stops = { {0.0, QColor(30,18,0)}, {0.18, QColor(80,58,10)},
+                  {0.38, QColor(155,122,30)}, {0.58, QColor(218,188,55)},
+                  {0.76, QColor(252,235,140)}, {1.0, QColor(255,252,235)} };
+        break;
+    }
+
+    // Apply gradient map (emboss grayscale → metal color)
+    QImage metal = gradientMap(emboss, stops);
+
+    // Patina texture for bronze types: blend with a color-shifted variant
+    // using the original image's high-frequency detail as a mask.
+    // This creates natural mottled copper-rust texture.
+    if (texture > 0.01 && (metalType == 2 || metalType == 3)) {
+        QVector<QPair<double, QColor>> texStops;
+        if (metalType == 2) { // 青铜 — more blue/teal variation
+            texStops = { {0.0, QColor(8,48,36)}, {0.15, QColor(15,85,68)},
+                         {0.3, QColor(28,125,98)}, {0.45, QColor(40,168,135)},
+                         {0.6, QColor(65,210,175)}, {0.75, QColor(105,238,210)},
+                         {0.88, QColor(145,248,230)}, {1.0, QColor(185,252,242)} };
+        } else { // 古铜 — more reddish/oxidized variation
+            texStops = { {0.0, QColor(45,10,4)}, {0.15, QColor(88,22,10)},
+                         {0.3, QColor(135,48,18)}, {0.45, QColor(180,80,28)},
+                         {0.6, QColor(222,128,42)}, {0.75, QColor(245,178,78)},
+                         {0.88, QColor(252,218,130)}, {1.0, QColor(255,242,200)} };
+        }
+        QImage metalVar = gradientMap(emboss, texStops);
+
+        // Compute local detail map: per-pixel diff from 3×3 neighborhood average
+        QImage detail(w, h, QImage::Format_Grayscale8);
+        detail.fill(0);
+        for (int y = 1; y < h - 1; ++y) {
+            const uchar *g0 = gray.scanLine(y - 1);
+            const uchar *g1 = gray.scanLine(y);
+            const uchar *g2 = gray.scanLine(y + 1);
+            uchar *dLine = detail.scanLine(y);
+            for (int x = 1; x < w - 1; ++x) {
+                int avg = (g0[x-1]+g0[x]+g0[x+1]+g1[x-1]+g1[x]+g1[x+1]+g2[x-1]+g2[x]+g2[x+1]) / 9;
+                int diff = abs(g1[x] - avg);
+                dLine[x] = (uchar)qMin(diff * 3, 255);
+            }
+        }
+
+        // Blend base × variant using detail mask modulated by texture strength
+        QImage textured(w, h, QImage::Format_ARGB32);
+        for (int y = 0; y < h; ++y) {
+            const QRgb *bLine = reinterpret_cast<const QRgb*>(metal.constScanLine(y));
+            const QRgb *vLine = reinterpret_cast<const QRgb*>(metalVar.constScanLine(y));
+            const uchar *dLine = detail.constScanLine(y);
+            QRgb *tLine = reinterpret_cast<QRgb*>(textured.scanLine(y));
+            for (int x = 0; x < w; ++x) {
+                double t = (dLine[x] / 255.0) * texture;
+                QRgb bp = bLine[x], vp = vLine[x];
+                tLine[x] = qRgba(
+                    clamp((int)(qRed(bp)*(1-t) + qRed(vp)*t)),
+                    clamp((int)(qGreen(bp)*(1-t) + qGreen(vp)*t)),
+                    clamp((int)(qBlue(bp)*(1-t) + qBlue(vp)*t)),
+                    255);
+            }
+        }
+        metal = textured;
+    }
+
+    // Gloss overlay — spherical highlight for metallic sheen (金/银)
+    if (gloss > 0.01 && (metalType == 0 || metalType == 1)) {
+        double cx = w / 2.0, cy = h / 2.0;
+        double maxDist = qSqrt(cx*cx + cy*cy);
+        // Gold gets warm highlight, silver gets cool white
+        double hR = (metalType == 0) ? 1.0 : 1.0;
+        double hG = (metalType == 0) ? 0.97 : 1.0;
+        double hB = (metalType == 0) ? 0.84 : 1.0;
+
+        for (int y = 0; y < h; ++y) {
+            QRgb *mLine = reinterpret_cast<QRgb*>(metal.scanLine(y));
+            const uchar *eLine = emboss.constScanLine(y);
+            for (int x = 0; x < w; ++x) {
+                double dx = (x - cx) / maxDist;
+                double dy = (y - cy) / maxDist;
+                double dist = qSqrt(dx*dx + dy*dy);
+                double centerGlow = qExp(-dist * dist * 3.0) * 0.55;
+                double rimGlow = qExp(-((dx+0.35)*(dx+0.35)*2.5 + (dy+0.35)*(dy+0.35)*2.5)) * 0.45;
+                double g = (centerGlow + rimGlow) * gloss;
+                g *= (0.25 + 0.75 * eLine[x] / 255.0); // raised areas glossier
+                if (g > 0.005) {
+                    QRgb mp = mLine[x];
+                    int r = clamp((int)(255 - (255 - qRed(mp))   * (1.0 - g * hR)));
+                    int gg = clamp((int)(255 - (255 - qGreen(mp)) * (1.0 - g * hG)));
+                    int b = clamp((int)(255 - (255 - qBlue(mp))  * (1.0 - g * hB)));
+                    mLine[x] = qRgba(r, gg, b, 255);
+                }
+            }
+        }
+    }
+
+    // Blend with original
+    if (blend >= 1.0) return metal;
+    QImage result(w, h, QImage::Format_ARGB32);
+    for (int y = 0; y < h; ++y) {
+        const QRgb *mLine = reinterpret_cast<const QRgb*>(metal.constScanLine(y));
+        const QRgb *sLine = reinterpret_cast<const QRgb*>(input.constScanLine(y));
+        QRgb *dLine = reinterpret_cast<QRgb*>(result.scanLine(y));
+        for (int x = 0; x < w; ++x) {
+            QRgb mp = mLine[x], sp = sLine[x];
+            double b = blend;
+            dLine[x] = qRgba(
+                clamp((int)(qRed(mp)*b   + qRed(sp)*(1-b))),
+                clamp((int)(qGreen(mp)*b + qGreen(sp)*(1-b))),
+                clamp((int)(qBlue(mp)*b  + qBlue(sp)*(1-b))),
+                qAlpha(sp));
         }
     }
     return result;

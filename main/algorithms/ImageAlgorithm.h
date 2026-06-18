@@ -28,7 +28,10 @@ public:
 
     // ---- Tone / Mapping ----
     static QImage gammaCorrection(const QImage &src, double gamma);
+    // Binarization modes: 0=global, 1=OTSU, 2=adaptive mean, 3=adaptive gaussian
     static QImage threshold(const QImage &src, int level);
+    static QImage binarize(const QImage &src, int mode, int level,
+                           int blockSize = 15, double c = 8.0);
     static QImage sepia(const QImage &src, double intensity);
 
     // ---- Filters ----
@@ -69,6 +72,11 @@ public:
     // ---- Lens Flare ----
     // cx,cy: center (0~1), brightness: 0~2, size: 0.1~3
     static QImage lensFlare(const QImage &src, double cx, double cy, double brightness, double size);
+
+    // ---- Metal Emboss ----
+    // metalType: 0=gold, 1=silver, 2=copper; concave: true=凹版 false=凸版
+    // depth: 1~20, blend: 0~1 (0=original, 1=full metal)
+    static QImage metalEmboss(const QImage &src, int metalType, bool concave, double depth, double blend, double texture, double gloss);
 
     // ---- Exposure ----
     // EV: -5..+5 (0 = no change)

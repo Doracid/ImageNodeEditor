@@ -114,6 +114,7 @@ int main(int argc, char *argv[])
 #include "nodes/OilPaintingNode.h"
 #include "nodes/PolarCoordsNode.h"
 #include "nodes/LensFlareNode.h"
+#include "nodes/MetalStyleNode.h"
 
 void registerAllNodeTypes()
 {
@@ -136,7 +137,7 @@ void registerAllNodeTypes()
     reg.registerType("SaturationNode",    "色彩调整",      "饱和度",      "调整色彩饱和度",             []() -> Node* { return new SaturationNode(); });
     reg.registerType("HueShiftNode",      "色彩调整",      "色相偏移",     "旋转色相角度",               []() -> Node* { return new HueShiftNode(); });
     reg.registerType("GammaNode",         "色彩调整",      "伽马校正",    "伽马校正",                    []() -> Node* { return new GammaNode(); });
-    reg.registerType("ThresholdNode",     "转换",      "阈值",        "二值化阈值处理",              []() -> Node* { return new ThresholdNode(); });
+    reg.registerType("ThresholdNode",     "转换",      "二值化",      "全局/大津法/自适应均值/自适应高斯二值化",              []() -> Node* { return new ThresholdNode(); });
     reg.registerType("SepiaNode",         "风格化",    "怀旧",        "怀旧色调效果",               []() -> Node* { return new SepiaNode(); });
     reg.registerType("SharpenNode",       "滤波",      "锐化",        "锐化图像",                   []() -> Node* { return new SharpenNode(); });
     reg.registerType("ColorTemperatureNode", "转换", "冷暖色调",  "调节画面冷暖色温",           []() -> Node* { return new ColorTemperatureNode(); });
@@ -158,4 +159,5 @@ void registerAllNodeTypes()
     reg.registerType("OilPaintingNode",    "风格化",    "油画效果",    "模拟油画笔触效果",          []() -> Node* { return new OilPaintingNode(); });
     reg.registerType("PolarCoordsNode",    "风格化",    "极坐标",      "直角坐标↔极坐标转换",        []() -> Node* { return new PolarCoordsNode(); });
     reg.registerType("LensFlareNode",      "风格化",    "镜头光晕",    "模拟镜头逆光光晕效果",      []() -> Node* { return new LensFlareNode(); });
+    reg.registerType("MetalStyleNode",     "风格化",    "金属底板",    "金/银/青铜/古铜+凸版/凹版浮雕",[]() -> Node* { return new MetalStyleNode(); });
 }
