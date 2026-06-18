@@ -761,16 +761,47 @@ QImage ImageAlgorithm::pencilSketch(const QImage &src, int blurRadius, double de
 
     QImage dst(gray.size(), QImage::Format_ARGB32);
     // Dodge-blend to get base sketch
-    for (int y = 0; y < gray.height(); ++y) {
-        QRgb *gLine = reinterpret_cast<QRgb*>(gray.scanLine(y));
-        QRgb *bLine = reinterpret_cast<QRgb*>(blurred.scanLine(y));
-        QRgb *dLine = reinterpret_cast<QRgb*>(dst.scanLine(y));
-        for (int x = 0; x < gray.width(); ++x) {
-            int gv = qRed(gLine[x]);
-            int bv = qRed(bLine[x]);
-            int sketch = gv * 255 / qMax(bv + 1, 1);
-            sketch = qMin(sketch, 255);
-            dLine[x] = qRgba(sketch, sketch, sketch, 255);
+    {
+        QImage gray8 = gray.convertToFormat(QImage::Format_Grayscale8);
+        QImage blr8   = blurred.convertToFormat(QImage::Format_Grayscale8);
+        for (int y = 0; y < gray.height(); ++y) {
+            const uchar *gLine = gray8.constScanLine(y);
+            const uchar *bLine = blr8.constScanLine(y);
+            QRgb *dLine = reinterpret_cast<QRgb*>(dst.scanLine(y));
+            for (int x = 0; x < gray.width(); ++x) {
+                int gv = gLine[x];
+                int bv = bLine[x];
+                int sketch = gv * 255 / qMax(bv + 1, 1);
+                sketch = qMin(sketch, 255);
+                dLine[x] = qRgba(sketch, sketch, sketch, 255);
+            }
+        }
+    }
+
+    // Sobel edge overlay — captures fine details even in low-contrast areas
+    {
+        QImage gray8 = toGrayscale(src); // use original (not equalized) for edges
+        int w = gray8.width(), h = gray8.height();
+        // Compute edge magnitude and darken sketch at edge pixels
+        for (int y = 1; y < h - 1; ++y) {
+            const uchar *row0 = gray8.constScanLine(y - 1);
+            const uchar *row1 = gray8.constScanLine(y);
+            const uchar *row2 = gray8.constScanLine(y + 1);
+            QRgb *dLine = reinterpret_cast<QRgb*>(dst.scanLine(y));
+            for (int x = 1; x < w - 1; ++x) {
+                int gx = row0[x-1] + 2*row0[x] + row0[x+1]
+                       - row2[x-1] - 2*row2[x] - row2[x+1];
+                int gy = row0[x-1] + 2*row1[x-1] + row2[x-1]
+                       - row0[x+1] - 2*row1[x+1] - row2[x+1];
+                int mag = (int)std::sqrt(gx * gx + gy * gy);
+                if (mag > 8) { // threshold to avoid noise
+                    int sketch = qRed(dLine[x]);
+                    // Darken: stronger edge = more darkening
+                    double edgeStr = qMin(1.0, mag / 80.0);
+                    int darken = (int)(sketch * (1.0 - edgeStr * 0.55));
+                    dLine[x] = qRgba(darken, darken, darken, 255);
+                }
+            }
         }
     }
 

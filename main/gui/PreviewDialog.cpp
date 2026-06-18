@@ -2,38 +2,61 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QPushButton>
-#include <QResizeEvent>
 
 PreviewDialog::PreviewDialog(QWidget *parent)
     : QDialog(parent)
 {
     setWindowTitle("预览");
-    setMinimumSize(300, 300);
-    resize(800, 600);
+    setMinimumSize(400, 300);
+    resize(900, 600);
 
     auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(8, 8, 8, 8);
 
-    m_imageLabel = new QLabel(this);
-    m_imageLabel->setAlignment(Qt::AlignCenter);
-    m_imageLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    layout->addWidget(m_imageLabel, 1);
+    // Compare toggle
+    auto *topBar = new QHBoxLayout();
+    m_compareCheck = new QCheckBox("显示原图对比");
+    m_compareCheck->setChecked(true);
+    topBar->addWidget(m_compareCheck);
+    topBar->addStretch();
+    layout->addLayout(topBar);
 
+    // Splitter with two image panels
+    m_splitter = new QSplitter(Qt::Horizontal, this);
+
+    m_originalPanel = new ImagePanel();
+    m_originalPanel->setLabel("原图");
+    m_splitter->addWidget(m_originalPanel);
+
+    m_resultPanel = new ImagePanel();
+    m_resultPanel->setLabel("效果图");
+    m_splitter->addWidget(m_resultPanel);
+
+    m_splitter->setStretchFactor(0, 1);
+    m_splitter->setStretchFactor(1, 1);
+    layout->addWidget(m_splitter, 1);
+
+    // Close button
     auto *btnLayout = new QHBoxLayout();
     auto *closeBtn = new QPushButton("关闭");
     connect(closeBtn, &QPushButton::clicked, this, &QDialog::accept);
     btnLayout->addStretch();
     btnLayout->addWidget(closeBtn);
     layout->addLayout(btnLayout);
+
+    connect(m_compareCheck, &QCheckBox::toggled, this, &PreviewDialog::onToggleCompare);
 }
 
-void PreviewDialog::setImage(const QImage &img)
+void PreviewDialog::setResultImage(const QImage &img)
 {
-    m_originalImage = img;
-    if (img.isNull()) {
-        m_imageLabel->setText("无图像数据");
-        return;
-    }
-    updatePixmap();
+    m_resultPanel->setImage(img);
+}
+
+void PreviewDialog::setOriginalImage(const QImage &img)
+{
+    m_originalPanel->setImage(img);
+    m_hasOriginal = !img.isNull();
+    m_originalPanel->setVisible(m_compareCheck->isChecked() && m_hasOriginal);
 }
 
 void PreviewDialog::setTitle(const QString &title)
@@ -41,22 +64,7 @@ void PreviewDialog::setTitle(const QString &title)
     setWindowTitle("预览 - " + title);
 }
 
-void PreviewDialog::resizeEvent(QResizeEvent *event)
+void PreviewDialog::onToggleCompare(bool checked)
 {
-    QDialog::resizeEvent(event);
-    if (!m_originalImage.isNull())
-        updatePixmap();
-}
-
-void PreviewDialog::updatePixmap()
-{
-    if (m_originalImage.isNull()) return;
-
-    // Available area = label size inside the layout
-    QSize avail = m_imageLabel->size();
-    if (avail.width() < 10 || avail.height() < 10) return;
-
-    QPixmap pm = QPixmap::fromImage(m_originalImage);
-    QPixmap scaled = pm.scaled(avail, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    m_imageLabel->setPixmap(scaled);
+    m_originalPanel->setVisible(checked && m_hasOriginal);
 }

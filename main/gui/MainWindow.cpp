@@ -261,8 +261,33 @@ void MainWindow::onShowPreview(Node *node)
     if (!m_previewDialog) {
         m_previewDialog = new PreviewDialog(this);
     }
-    m_previewDialog->setImage(img);
+    m_previewDialog->setResultImage(img);
     m_previewDialog->setTitle(node->title());
+
+    // Trace back through the chain to find the root input image
+    QImage originalImg;
+    QUuid traceId = node->id();
+    int maxTrace = 50; // safety limit
+    while (maxTrace-- > 0) {
+        auto conns = m_scene->engine()->allConnections();
+        bool foundInput = false;
+        for (const auto &c : conns) {
+            if (c.targetNodeId == traceId && c.targetPort == 0) {
+                Node *srcNode = m_scene->engine()->node(c.sourceNodeId);
+                if (srcNode) {
+                    QVariant srcVar = srcNode->property("__lastOutput");
+                    if (srcVar.isValid())
+                        originalImg = srcVar.value<QImage>();
+                    traceId = srcNode->id();
+                    foundInput = true;
+                }
+                break;
+            }
+        }
+        if (!foundInput) break;
+    }
+    m_previewDialog->setOriginalImage(originalImg);
+
     m_previewDialog->show();
     m_previewDialog->raise();
     m_previewDialog->activateWindow();
