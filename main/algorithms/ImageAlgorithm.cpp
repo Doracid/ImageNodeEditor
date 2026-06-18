@@ -1010,6 +1010,63 @@ QImage ImageAlgorithm::comicStyle(const QImage &src, int edgeThreshold, int line
 }
 
 // ====================================================================
+// Gradient Map — map grayscale luminance through a color gradient
+// ====================================================================
+QImage ImageAlgorithm::gradientMap(const QImage &src, const QVector<QPair<double, QColor>> &stops)
+{
+    if (src.isNull()) return {};
+    if (stops.size() < 2) return src;
+
+    // Build 256-entry color LUT from gradient stops
+    // Sort stops by position
+    QVector<QPair<double, QColor>> sorted = stops;
+    std::sort(sorted.begin(), sorted.end(),
+              [](const QPair<double, QColor> &a, const QPair<double, QColor> &b) {
+                  return a.first < b.first;
+              });
+
+    QRgb lut[256];
+    for (int i = 0; i < 256; ++i) {
+        double t = i / 255.0;
+
+        // Find the two stops that bracket t
+        if (t <= sorted[0].first) {
+            lut[i] = sorted[0].second.rgba();
+        } else if (t >= sorted.last().first) {
+            lut[i] = sorted.last().second.rgba();
+        } else {
+            for (int s = 0; s < sorted.size() - 1; ++s) {
+                if (t >= sorted[s].first && t <= sorted[s + 1].first) {
+                    double local = (t - sorted[s].first)
+                                 / (sorted[s + 1].first - sorted[s].first);
+                    const QColor &c1 = sorted[s].second;
+                    const QColor &c2 = sorted[s + 1].second;
+                    lut[i] = qRgba(
+                        (int)(c1.red()   * (1.0 - local) + c2.red()   * local),
+                        (int)(c1.green() * (1.0 - local) + c2.green() * local),
+                        (int)(c1.blue()  * (1.0 - local) + c2.blue()  * local),
+                        255);
+                    break;
+                }
+            }
+        }
+    }
+
+    // Apply LUT based on grayscale luminance
+    QImage gray = toGrayscale(src);
+    int w = gray.width(), h = gray.height();
+    QImage dst(w, h, QImage::Format_ARGB32);
+    for (int y = 0; y < h; ++y) {
+        const uchar *gLine = gray.constScanLine(y);
+        QRgb *dLine = reinterpret_cast<QRgb*>(dst.scanLine(y));
+        for (int x = 0; x < w; ++x) {
+            dLine[x] = lut[gLine[x]];
+        }
+    }
+    return dst;
+}
+
+// ====================================================================
 // Exposure — out = in * 2^EV
 // ====================================================================
 QImage ImageAlgorithm::exposure(const QImage &src, double ev)
@@ -1422,5 +1479,242 @@ QImage ImageAlgorithm::autoEnhance(const QImage &src, double strength)
         return blended;
     }
 
+    return result;
+}
+
+// ====================================================================
+// Oil Painting
+// ====================================================================
+QImage ImageAlgorithm::oilPaint(const QImage &src, int brushSize, int colorLevels)
+{
+    if (src.isNull()) return {};
+    brushSize = qBound(1, brushSize, 20);
+    colorLevels = qBound(2, colorLevels, 64);
+
+    QImage input = src.convertToFormat(QImage::Format_ARGB32);
+    int ow = input.width(), oh = input.height();
+    int w = ow, h = oh;
+
+    // Auto-downscale large images for performance
+    QImage *workImg = &input;
+    QImage scaled;
+    const int maxPixels = 500000; // ~700x700
+    if (ow * oh > maxPixels) {
+        double scale = qSqrt((double)maxPixels / (ow * oh));
+        w = qMax(64, (int)(ow * scale));
+        h = qMax(64, (int)(oh * scale));
+        scaled = input.scaled(w, h, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        workImg = &scaled;
+        brushSize = qMax(1, (int)(brushSize * scale));
+    }
+
+    QImage result(w, h, QImage::Format_ARGB32);
+    for (int y = 0; y < h; ++y) {
+        QRgb *dLine = reinterpret_cast<QRgb*>(result.scanLine(y));
+        for (int x = 0; x < w; ++x) {
+            QVector<int> count(colorLevels, 0);
+            QVector<long long> sumR(colorLevels, 0);
+            QVector<long long> sumG(colorLevels, 0);
+            QVector<long long> sumB(colorLevels, 0);
+
+            int y0 = qMax(0, y - brushSize), y1 = qMin(h - 1, y + brushSize);
+            int x0 = qMax(0, x - brushSize), x1 = qMin(w - 1, x + brushSize);
+
+            for (int sy = y0; sy <= y1; ++sy) {
+                const QRgb *sLine = reinterpret_cast<const QRgb*>(workImg->constScanLine(sy));
+                for (int sx = x0; sx <= x1; ++sx) {
+                    QRgb p = sLine[sx];
+                    int r = qRed(p), g = qGreen(p), b = qBlue(p);
+                    int lum = (r * 299 + g * 587 + b * 114) / 1000;
+                    int idx = qBound(0, lum * colorLevels / 256, colorLevels - 1);
+                    count[idx]++;
+                    sumR[idx] += r;
+                    sumG[idx] += g;
+                    sumB[idx] += b;
+                }
+            }
+
+            int bestIdx = 0;
+            for (int i = 1; i < colorLevels; ++i)
+                if (count[i] > count[bestIdx]) bestIdx = i;
+
+            if (count[bestIdx] > 0)
+                dLine[x] = qRgba((int)(sumR[bestIdx] / count[bestIdx]),
+                                 (int)(sumG[bestIdx] / count[bestIdx]),
+                                 (int)(sumB[bestIdx] / count[bestIdx]), 255);
+        }
+    }
+
+    // Scale back to original size if downscaled
+    if (w != ow || h != oh)
+        result = result.scaled(ow, oh, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    return result;
+}
+
+// ====================================================================
+// Polar Coordinates
+// ====================================================================
+QImage ImageAlgorithm::polarCoords(const QImage &src, bool polarToRect)
+{
+    if (src.isNull()) return {};
+    QImage input = src.convertToFormat(QImage::Format_ARGB32);
+    int w = input.width(), h = input.height();
+    QImage result(w, h, QImage::Format_ARGB32);
+    result.fill(0);
+
+    double cx = w / 2.0, cy = h / 2.0;
+    double maxR = qSqrt(cx*cx + cy*cy);
+
+    for (int y = 0; y < h; ++y) {
+        QRgb *dLine = reinterpret_cast<QRgb*>(result.scanLine(y));
+        for (int x = 0; x < w; ++x) {
+            double sx, sy;
+            bool outOfBounds = false;
+
+            if (polarToRect) {
+                double theta = (x / (double)w) * 2.0 * M_PI;
+                double r = y / (double)h;
+                sx = cx + r * qCos(theta) * maxR;
+                sy = cy + r * qSin(theta) * maxR;
+            } else {
+                double dx = x - cx, dy = y - cy;
+                double r = qSqrt(dx*dx + dy*dy) / maxR;
+                if (r > 1.0) continue; // leave black
+                double theta = qAtan2(dy, dx) / (2.0 * M_PI);
+                if (theta < 0) theta += 1.0;
+                sx = theta * w;
+                sy = r * h;
+            }
+
+            // Bounds check
+            if (sx < 0 || sx >= w || sy < 0 || sy >= h) { outOfBounds = true; }
+
+            int ix, iy, ix2, iy2;
+            if (polarToRect) {
+                // X wraps around (angle), Y clamps
+                double tw = w;
+                ix = ((int)sx) % w; if (ix < 0) ix += w;
+                iy = qBound(0, (int)sy, h - 1);
+                ix2 = (ix + 1) % w;
+                iy2 = qMin(iy + 1, h - 1);
+            } else {
+                ix = qBound(0, (int)sx, w - 1);
+                iy = qBound(0, (int)sy, h - 1);
+                ix2 = qMin(ix + 1, w - 1);
+                iy2 = qMin(iy + 1, h - 1);
+            }
+
+            if (outOfBounds && !polarToRect) continue;
+
+            double fx = sx - qFloor(sx), fy = sy - qFloor(sy);
+
+            const QRgb *l0 = reinterpret_cast<const QRgb*>(input.constScanLine(iy));
+            const QRgb *l1 = reinterpret_cast<const QRgb*>(input.constScanLine(iy2));
+
+            double rr = (qRed(l0[ix])*(1-fx) + qRed(l0[ix2])*fx)*(1-fy)
+                      + (qRed(l1[ix])*(1-fx) + qRed(l1[ix2])*fx)*fy;
+            double gg = (qGreen(l0[ix])*(1-fx) + qGreen(l0[ix2])*fx)*(1-fy)
+                      + (qGreen(l1[ix])*(1-fx) + qGreen(l1[ix2])*fx)*fy;
+            double bb = (qBlue(l0[ix])*(1-fx) + qBlue(l0[ix2])*fx)*(1-fy)
+                      + (qBlue(l1[ix])*(1-fx) + qBlue(l1[ix2])*fx)*fy;
+
+            dLine[x] = qRgba(clamp((int)rr), clamp((int)gg), clamp((int)bb), 255);
+        }
+    }
+    return result;
+}
+
+// ====================================================================
+// Lens Flare
+// ====================================================================
+QImage ImageAlgorithm::lensFlare(const QImage &src, double cx, double cy,
+                                  double brightness, double size)
+{
+    if (src.isNull()) return {};
+    QImage input = src.convertToFormat(QImage::Format_ARGB32);
+    int w = input.width(), h = input.height();
+    QImage flare(w, h, QImage::Format_ARGB32);
+    flare.fill(qRgba(0, 0, 0, 0));
+
+    int px = qBound(0, (int)(cx * w), w - 1);
+    int py = qBound(0, (int)(cy * h), h - 1);
+    double s = qBound(0.1, size, 3.0) * qMax(w, h) / 500.0;
+    double b = qBound(0.0, brightness, 2.0);
+
+    QPainter p(&flare);
+    p.setRenderHint(QPainter::Antialiasing);
+
+    // 1. Central bright spot
+    QRadialGradient centerGlow(px, py, 60 * s, px, py);
+    centerGlow.setColorAt(0.0, QColor(255, 255, 255, (int)(200 * b)));
+    centerGlow.setColorAt(0.1, QColor(255, 240, 200, (int)(150 * b)));
+    centerGlow.setColorAt(0.5, QColor(255, 200, 150, (int)(60 * b)));
+    centerGlow.setColorAt(1.0, QColor(255, 200, 150, 0));
+    p.setBrush(centerGlow);
+    p.setPen(Qt::NoPen);
+    p.drawEllipse(QPointF(px, py), 60 * s, 60 * s);
+
+    // 2. Halo rings
+    for (int i = 0; i < 3; ++i) {
+        double r = (80 + i * 50) * s;
+        QRadialGradient halo(px, py, r, px, py);
+        int alpha = (int)((60 - i * 15) * b);
+        halo.setColorAt(0.0, QColor(255, 255, 255, 0));
+        halo.setColorAt(0.8, QColor(150, 180, 255, (int)(alpha * 0.5)));
+        halo.setColorAt(1.0, QColor(255, 255, 255, 0));
+        p.setBrush(halo);
+        p.drawEllipse(QPointF(px, py), r, r);
+    }
+
+    // 3. Anamorphic streak
+    QLinearGradient streakL(px - 200 * s, py, px + 200 * s, py);
+    streakL.setColorAt(0.0, QColor(255, 100, 150, 0));
+    streakL.setColorAt(0.3, QColor(200, 100, 255, (int)(40 * b)));
+    streakL.setColorAt(0.5, QColor(255, 255, 255, (int)(80 * b)));
+    streakL.setColorAt(0.7, QColor(100, 150, 255, (int)(40 * b)));
+    streakL.setColorAt(1.0, QColor(255, 100, 150, 0));
+    p.setBrush(streakL);
+    p.drawRect(px - 200 * s, py - 2 * s, 400 * s, 4 * s);
+
+    // 4. Chromatic artifacts opposite to center
+    double oppositeX = w - px, oppositeY = h - py;
+    for (int i = 0; i < 5; ++i) {
+        double t = (double)(i + 1) / 6.0;
+        double ax = px + (oppositeX - px) * t;
+        double ay = py + (oppositeY - py) * t + (i - 2) * 15 * s;
+        double ar = (8 - i) * s;
+        QColor colors[] = { QColor(255, 100, 100), QColor(100, 200, 100),
+                           QColor(100, 100, 255), QColor(255, 200, 100),
+                           QColor(200, 100, 255) };
+        QColor ac = colors[i % 5];
+        ac.setAlpha((int)((60 - i * 10) * b));
+
+        QRadialGradient ag(ax, ay, ar, ax, ay);
+        ag.setColorAt(0.0, QColor(255, 255, 255, (int)((80 - i * 12) * b)));
+        ag.setColorAt(0.5, ac);
+        ag.setColorAt(1.0, QColor(ac.red(), ac.green(), ac.blue(), 0));
+        p.setBrush(ag);
+        p.drawEllipse(QPointF(ax, ay), ar, ar);
+    }
+
+    p.end();
+
+    // Screen blend with original
+    QImage result(w, h, QImage::Format_ARGB32);
+    for (int y = 0; y < h; ++y) {
+        const QRgb *sLine = reinterpret_cast<const QRgb*>(input.constScanLine(y));
+        const QRgb *fLine = reinterpret_cast<const QRgb*>(flare.constScanLine(y));
+        QRgb *dLine = reinterpret_cast<QRgb*>(result.scanLine(y));
+        for (int x = 0; x < w; ++x) {
+            QRgb sp = sLine[x], fp = fLine[x];
+            int fa = qAlpha(fp);
+            if (fa == 0) { dLine[x] = sp; continue; }
+            double blend = fa / 255.0;
+            int r = clamp((int)(255 - (255 - qRed(sp)) * (1 - blend * qRed(fp)/255.0)));
+            int g = clamp((int)(255 - (255 - qGreen(sp)) * (1 - blend * qGreen(fp)/255.0)));
+            int b = clamp((int)(255 - (255 - qBlue(sp)) * (1 - blend * qBlue(fp)/255.0)));
+            dLine[x] = qRgba(r, g, b, qAlpha(sp));
+        }
+    }
     return result;
 }

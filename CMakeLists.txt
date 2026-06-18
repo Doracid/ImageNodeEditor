@@ -52,6 +52,10 @@ set(SOURCES
     main/nodes/ToneCurveNode.cpp
     main/nodes/AutoEnhanceNode.cpp
     main/nodes/ComicStyleNode.cpp
+    main/nodes/GradientMapNode.cpp
+    main/nodes/OilPaintingNode.cpp
+    main/nodes/PolarCoordsNode.cpp
+    main/nodes/LensFlareNode.cpp
     main/gui/MainWindow.cpp
     main/gui/NodeScene.cpp
     main/gui/NodeView.cpp
@@ -109,6 +113,10 @@ set(HEADERS
     main/nodes/ToneCurveNode.h
     main/nodes/AutoEnhanceNode.h
     main/nodes/ComicStyleNode.h
+    main/nodes/GradientMapNode.h
+    main/nodes/OilPaintingNode.h
+    main/nodes/PolarCoordsNode.h
+    main/nodes/LensFlareNode.h
     main/gui/MainWindow.h
     main/gui/NodeScene.h
     main/gui/NodeView.h

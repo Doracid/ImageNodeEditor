@@ -4,6 +4,7 @@
 #include <QRect>
 #include <QString>
 #include <QColor>
+#include <QPair>
 #include <QtMath>
 
 // Collection of stateless image processing functions.
@@ -52,6 +53,22 @@ public:
     // edgeThreshold: lower = more detail visible, higher = cleaner lines
     // lineThickness: 1~5, larger = bolder lines
     static QImage comicStyle(const QImage &src, int edgeThreshold, int lineThickness);
+
+    // ---- Gradient Map ----
+    // map: list of (pos, R, G, B) tuples where pos in [0,1], RGB in [0,255]
+    static QImage gradientMap(const QImage &src, const QVector<QPair<double, QColor>> &stops);
+
+    // ---- Oil Painting ----
+    // brushSize: 1~20, colorLevels: 2~64
+    static QImage oilPaint(const QImage &src, int brushSize, int colorLevels);
+
+    // ---- Polar Coordinates ----
+    // polarToRect: false=rect→polar, true=polar→rect
+    static QImage polarCoords(const QImage &src, bool polarToRect);
+
+    // ---- Lens Flare ----
+    // cx,cy: center (0~1), brightness: 0~2, size: 0.1~3
+    static QImage lensFlare(const QImage &src, double cx, double cy, double brightness, double size);
 
     // ---- Exposure ----
     // EV: -5..+5 (0 = no change)
