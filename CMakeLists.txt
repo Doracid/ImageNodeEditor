@@ -51,6 +51,7 @@ set(SOURCES
     main/nodes/ClarityNode.cpp
     main/nodes/ToneCurveNode.cpp
     main/nodes/AutoEnhanceNode.cpp
+    main/nodes/ComicStyleNode.cpp
     main/gui/MainWindow.cpp
     main/gui/NodeScene.cpp
     main/gui/NodeView.cpp
@@ -107,6 +108,7 @@ set(HEADERS
     main/nodes/ClarityNode.h
     main/nodes/ToneCurveNode.h
     main/nodes/AutoEnhanceNode.h
+    main/nodes/ComicStyleNode.h
     main/gui/MainWindow.h
     main/gui/NodeScene.h
     main/gui/NodeView.h

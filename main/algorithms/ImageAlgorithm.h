@@ -48,6 +48,10 @@ public:
     static QImage pencilSketch(const QImage &src, int blurRadius, double detailBoost = 0.5);
     // Cartoon: edgeThreshold[0,255], levels[2,16]
     static QImage cartoon(const QImage &src, int edgeThreshold, int levels);
+    // Comic style: black outlines on white background
+    // edgeThreshold: lower = more detail visible, higher = cleaner lines
+    // lineThickness: 1~5, larger = bolder lines
+    static QImage comicStyle(const QImage &src, int edgeThreshold, int lineThickness);
 
     // ---- Exposure ----
     // EV: -5..+5 (0 = no change)

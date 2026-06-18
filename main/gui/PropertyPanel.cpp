@@ -53,8 +53,10 @@ static QString paramLabel(const QString &key)
         {"fade",         "褪色程度"},
         {"blockSize",    "像素块大小"},
         {"levels",       "颜色层级"},
-        {"detailBoost",  "细节增强"},
-        {"strength",     "美化强度"},
+        {"detailBoost",      "细节增强"},
+        {"strength",         "美化强度"},
+        {"edgeThreshold",    "边缘阈值"},
+        {"lineThickness",    "线条粗细"},
     };
     return m.value(key, key);
 }

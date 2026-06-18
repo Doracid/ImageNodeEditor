@@ -894,6 +894,122 @@ QImage ImageAlgorithm::cartoon(const QImage &src, int edgeThreshold, int levels)
 }
 
 // ====================================================================
+// Comic Style — black outlines on white background
+// ====================================================================
+QImage ImageAlgorithm::comicStyle(const QImage &src, int edgeThreshold, int lineThickness)
+{
+    if (src.isNull()) return {};
+    int thr = qBound(8, edgeThreshold, 255);
+    int thick = qBound(1, lineThickness, 5);
+    int h = src.height(), w = src.width();
+
+    QImage gray = toGrayscale(src);
+
+    // Dark fill threshold: pixels darker than this are filled black
+    const int fillThr = 64;
+
+    // Step 1: Sobel edge detection + dark fill classification
+    QImage output(w, h, QImage::Format_ARGB32);
+    output.fill(Qt::white);
+
+    // Classify each pixel: 0=light, 1=dark-fill, 2=edge(black), 3=edge(white)
+    // We'll use a temporary grayscale image to store classification
+    QImage classMap(w, h, QImage::Format_Grayscale8);
+    classMap.fill(0);
+
+    // First pass: dark fill and edge detection
+    for (int y = 1; y < h - 1; ++y) {
+        const uchar *row0 = gray.constScanLine(y - 1);
+        const uchar *row1 = gray.constScanLine(y);
+        const uchar *row2 = gray.constScanLine(y + 1);
+        uchar *cLine = classMap.scanLine(y);
+        for (int x = 1; x < w - 1; ++x) {
+            int gx = row0[x-1] + 2*row0[x] + row0[x+1]
+                   - row2[x-1] - 2*row2[x] - row2[x+1];
+            int gy = row0[x-1] + 2*row1[x-1] + row2[x-1]
+                   - row0[x+1] - 2*row1[x+1] - row2[x+1];
+            int mag = (int)std::sqrt(gx * gx + gy * gy);
+
+            if (mag >= thr) {
+                // Edge pixel: check if it separates two dark areas
+                int darkCount = 0;
+                for (int dy = -1; dy <= 1; ++dy) {
+                    for (int dx = -1; dx <= 1; ++dx) {
+                        if (dx == 0 && dy == 0) continue;
+                        int ny = y + dy, nx = x + dx;
+                        if (ny >= 0 && ny < h && nx >= 0 && nx < w) {
+                            if (gray.constScanLine(ny)[nx] < fillThr)
+                                darkCount++;
+                        }
+                    }
+                }
+                // If most neighbors are dark → white separation line
+                // Otherwise → black outline
+                cLine[x] = (darkCount >= 5) ? 3 : 2;
+            } else if (row1[x] < fillThr) {
+                // Non-edge dark pixel → black fill
+                cLine[x] = 1;
+            }
+        }
+    }
+
+    // Handle border pixels (simple copy from nearest classified pixel)
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            if (x == 0 || x == w-1 || y == 0 || y == h-1) {
+                int cx = qBound(1, x, w-2);
+                int cy = qBound(1, y, h-2);
+                uchar val = classMap.constScanLine(cy)[cx];
+                classMap.scanLine(y)[x] = val;
+            }
+        }
+    }
+
+    // Dilate edges (both black and white edges)
+    if (thick > 1) {
+        QImage dilated(w, h, QImage::Format_Grayscale8);
+        dilated.fill(0);
+        int rad = thick;
+        for (int y = rad; y < h - rad; ++y) {
+            for (int x = rad; x < w - rad; ++x) {
+                uchar v = classMap.constScanLine(y)[x];
+                if (v >= 2) { // edge pixel
+                    for (int dy = -rad; dy <= rad; ++dy)
+                        for (int dx = -rad; dx <= rad; ++dx)
+                            if (dx*dx + dy*dy <= rad*rad)
+                                if (dy + y >= 0 && dy + y < h && dx + x >= 0 && dx + x < w)
+                                    if (classMap.constScanLine(y + dy)[x + dx] != 1)
+                                        dilated.scanLine(y + dy)[x + dx] = v;
+                }
+            }
+        }
+        // Copy back: only update non-dark-fill pixels
+        for (int y = 0; y < h; ++y) {
+            for (int x = 0; x < w; ++x) {
+                uchar dv = dilated.constScanLine(y)[x];
+                if (dv >= 2 && classMap.constScanLine(y)[x] != 1)
+                    classMap.scanLine(y)[x] = dv;
+            }
+        }
+    }
+
+    // Render output
+    for (int y = 0; y < h; ++y) {
+        const uchar *cLine = classMap.constScanLine(y);
+        QRgb *dLine = reinterpret_cast<QRgb*>(output.scanLine(y));
+        for (int x = 0; x < w; ++x) {
+            switch (cLine[x]) {
+                case 1:  dLine[x] = qRgba(0, 0, 0, 255); break;     // black fill
+                case 2:  dLine[x] = qRgba(0, 0, 0, 255); break;     // black edge
+                case 3:  dLine[x] = qRgba(255, 255, 255, 255); break; // white gap
+                default: /* white background */ break;
+            }
+        }
+    }
+    return output;
+}
+
+// ====================================================================
 // Exposure — out = in * 2^EV
 // ====================================================================
 QImage ImageAlgorithm::exposure(const QImage &src, double ev)

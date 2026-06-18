@@ -109,6 +109,7 @@ int main(int argc, char *argv[])
 #include "nodes/ClarityNode.h"
 #include "nodes/ToneCurveNode.h"
 #include "nodes/AutoEnhanceNode.h"
+#include "nodes/ComicStyleNode.h"
 
 void registerAllNodeTypes()
 {
@@ -148,4 +149,5 @@ void registerAllNodeTypes()
     reg.registerType("ClarityNode",        "滤波",      "清晰度",      "中频对比度增强",              []() -> Node* { return new ClarityNode(); });
     reg.registerType("ToneCurveNode",      "色彩调整",  "色调曲线",    "256 级 LUT 色调曲线",        []() -> Node* { return new ToneCurveNode(); });
     reg.registerType("AutoEnhanceNode",    "色彩调整",  "自动美化",    "自动白平衡+色阶+S曲线+饱和度",[]() -> Node* { return new AutoEnhanceNode(); });
+    reg.registerType("ComicStyleNode",     "风格化",    "漫画风",      "黑色轮廓线+白色背景漫画效果", []() -> Node* { return new ComicStyleNode(); });
 }
