@@ -3,6 +3,7 @@
 #include "PortGraphicsItem.h"
 #include "ConnectionGraphicsItem.h"
 #include "core/NodeRegistry.h"
+#include "io/WorkflowSerializer.h"
 #include <QKeyEvent>
 #include <QGraphicsSceneMouseEvent>
 #include <QPainter>
@@ -26,6 +27,7 @@ NodeScene::~NodeScene()
 // ---------------------------------------------------------------------------
 NodeGraphicsItem *NodeScene::addNodeToScene(Node *node, const QPointF &pos)
 {
+    saveSnapshot();
     m_engine.addNode(node);
     auto *item = new NodeGraphicsItem(node);
     addItem(item);
@@ -37,6 +39,7 @@ NodeGraphicsItem *NodeScene::addNodeToScene(Node *node, const QPointF &pos)
 
 void NodeScene::removeNodeFromScene(const QUuid &nodeId)
 {
+    saveSnapshot();
     auto *item = m_nodeItems.value(nodeId);
     if (!item) return;
 
@@ -71,6 +74,7 @@ NodeGraphicsItem *NodeScene::nodeGraphics(const QUuid &nodeId) const
 ConnectionGraphicsItem *NodeScene::addConnectionToScene(const QUuid &src, int srcPort,
                                                          const QUuid &tgt, int tgtPort)
 {
+    saveSnapshot();
     auto *srcItem = nodeGraphics(src);
     auto *tgtItem = nodeGraphics(tgt);
     if (!srcItem || !tgtItem) return nullptr;
@@ -96,6 +100,7 @@ ConnectionGraphicsItem *NodeScene::addConnectionToScene(const QUuid &src, int sr
 void NodeScene::removeConnectionFromScene(ConnectionGraphicsItem *conn)
 {
     if (!conn) return;
+    saveSnapshot();
     m_engine.removeConnection(conn->sourceNodeId(), conn->sourcePortIndex(),
                               conn->targetNodeId(), conn->targetPortIndex());
     m_connectionItems.removeOne(conn);
@@ -177,6 +182,7 @@ void NodeScene::nodeDoubleClicked(NodeGraphicsItem *item)
 // ---------------------------------------------------------------------------
 void NodeScene::clearAll()
 {
+    saveSnapshot();
     m_engine.clear(); // deletes all nodes
     for (auto *conn : m_connectionItems) {
         removeItem(conn);
@@ -196,6 +202,8 @@ void NodeScene::clearAll()
 // ---------------------------------------------------------------------------
 void NodeScene::deleteSelected()
 {
+    if (selectedItems().isEmpty()) return;
+    saveSnapshot();
     QList<QGraphicsItem*> selected = selectedItems();
     for (auto *item : selected) {
         if (auto *conn = qgraphicsitem_cast<ConnectionGraphicsItem*>(item))
@@ -291,6 +299,53 @@ void NodeScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 }
 
 // ---------------------------------------------------------------------------
+// Auto-connect
+// ---------------------------------------------------------------------------
+void NodeScene::autoConnect()
+{
+    if (m_nodeItems.size() < 2) return;
+    saveSnapshot();
+
+    // Sort nodes by X position (left to right)
+    QList<NodeGraphicsItem*> items = m_nodeItems.values();
+    std::sort(items.begin(), items.end(),
+              [](NodeGraphicsItem *a, NodeGraphicsItem *b) {
+                  return a->pos().x() < b->pos().x();
+              });
+
+    int connected = 0;
+    for (int i = 0; i < items.size() - 1; ++i) {
+        NodeGraphicsItem *left = items[i];
+        NodeGraphicsItem *right = items[i + 1];
+
+        // Try every output port on left with every input port on right
+        bool found = false;
+        for (auto *outPort : left->outputPortItems()) {
+            if (found) break;
+            for (auto *inPort : right->inputPortItems()) {
+                if (found) break;
+                // Skip if already connected
+                if (!m_engine.inputConnectionFor(right->nodeId(), inPort->port().index).sourceNodeId.isNull())
+                    continue;
+
+                QString err;
+                if (m_engine.canConnect(left->nodeId(), outPort->port().index,
+                                         right->nodeId(), inPort->port().index, err)) {
+                    addConnectionToScene(left->nodeId(), outPort->port().index,
+                                          right->nodeId(), inPort->port().index);
+                    connected++;
+                    found = true;
+                }
+            }
+        }
+    }
+
+    if (connected > 0) {
+        emit workflowModified();
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Replace node
 // ---------------------------------------------------------------------------
 void NodeScene::startNodeReplace(const QUuid &nodeId)
@@ -305,6 +360,8 @@ bool NodeScene::replaceNode(const QUuid &oldNodeId, const QString &newTypeName, 
 
     QPointF oldPos = oldGraphics->pos();
     QVector<Connection> oldConns = m_engine.connectionsForNode(oldNodeId);
+
+    saveSnapshot();
 
     // Quick port-count pre-check
     Node *tempCheck = NodeRegistry::instance().create(newTypeName);
@@ -395,6 +452,76 @@ bool NodeScene::replaceNode(const QUuid &oldNodeId, const QString &newTypeName, 
     delete oldClone;
     emit workflowModified();
     return true;
+}
+
+// ---------------------------------------------------------------------------
+// Undo support
+// ---------------------------------------------------------------------------
+void NodeScene::saveSnapshot()
+{
+    QJsonObject state = WorkflowSerializer::save(m_engine);
+    // Remove positions beyond undo limit
+    while (m_undoStack.size() >= kMaxUndo)
+        m_undoStack.removeFirst();
+    m_undoStack.append(state);
+}
+
+void NodeScene::undo()
+{
+    if (m_undoStack.isEmpty()) return;
+    QJsonObject state = m_undoStack.takeLast();
+
+    // Remember selection
+    QList<QUuid> selectedIds;
+    for (auto *item : selectedItems()) {
+        if (auto *n = qgraphicsitem_cast<NodeGraphicsItem*>(item))
+            selectedIds.append(n->nodeId());
+    }
+
+    // Clear current scene (remove all items first, then clear engine)
+    for (auto *conn : m_connectionItems) {
+        removeItem(conn);
+        delete conn;
+    }
+    m_connectionItems.clear();
+    for (auto *item : m_nodeItems) {
+        removeItem(item);
+        delete item;
+    }
+    m_nodeItems.clear();
+    m_engine.clear();
+
+    // Restore from snapshot
+    QString err;
+    WorkflowEngine tempEngine;
+    if (!WorkflowSerializer::load(state, tempEngine, err)) {
+        // If restore fails, undo stack is already popped — nothing more we can do
+        return;
+    }
+
+    // Rebuild graphics items
+    for (auto *node : tempEngine.allNodes()) {
+        QPointF pos;
+        double x = node->param("__posX", -10000).toDouble();
+        double y = node->param("__posY", -10000).toDouble();
+        if (x > -9999) pos.setX(x);
+        if (y > -9999) pos.setY(y);
+
+        QUuid oldId = node->id();
+        Node *clone = node->clone();
+        clone->setId(oldId);
+        for (auto it = node->allParams().constBegin(); it != node->allParams().constEnd(); ++it)
+            clone->setParam(it.key(), it.value());
+
+        auto *gi = addNodeToScene(clone, pos);
+        if (selectedIds.contains(oldId) && gi)
+            gi->setSelected(true);
+    }
+
+    for (const auto &c : tempEngine.allConnections())
+        addConnectionToScene(c.sourceNodeId, c.sourcePort, c.targetNodeId, c.targetPort);
+
+    emit workflowModified();
 }
 
 void NodeScene::drawBackground(QPainter *painter, const QRectF &rect)

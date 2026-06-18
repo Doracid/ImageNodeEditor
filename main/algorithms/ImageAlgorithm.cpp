@@ -2,6 +2,7 @@
 #include <QPainter>
 #include <QTransform>
 #include <QFont>
+#include <QRandomGenerator>
 #include <cmath>
 #include <algorithm>
 
@@ -479,31 +480,22 @@ QImage ImageAlgorithm::sharpen(const QImage &src, double strength)
     QImage tmp = src.convertToFormat(QImage::Format_ARGB32);
     QImage dst(tmp.size(), tmp.format());
     double k = qBound(0.0, strength, 10.0);
-    // kernel: 0 -k  0
-    //        -k 1+4k -k
-    //         0 -k  0
+    // kernel: -k  -k  -k
+    //        -k 1+8k -k
+    //        -k  -k  -k
     for (int y = 0; y < tmp.height(); ++y) {
         for (int x = 0; x < tmp.width(); ++x) {
             QRgb c = reinterpret_cast<QRgb*>(tmp.scanLine(y))[x];
-            double r = qRed(c)   * (1.0 + 4.0 * k);
-            double g = qGreen(c) * (1.0 + 4.0 * k);
-            double b = qBlue(c)  * (1.0 + 4.0 * k);
-            // Subtract neighbors
-            if (x > 0) {
-                QRgb p = reinterpret_cast<QRgb*>(tmp.scanLine(y))[x - 1];
-                r -= k * qRed(p);   g -= k * qGreen(p);   b -= k * qBlue(p);
-            }
-            if (x < tmp.width() - 1) {
-                QRgb p = reinterpret_cast<QRgb*>(tmp.scanLine(y))[x + 1];
-                r -= k * qRed(p);   g -= k * qGreen(p);   b -= k * qBlue(p);
-            }
-            if (y > 0) {
-                QRgb p = reinterpret_cast<QRgb*>(tmp.scanLine(y - 1))[x];
-                r -= k * qRed(p);   g -= k * qGreen(p);   b -= k * qBlue(p);
-            }
-            if (y < tmp.height() - 1) {
-                QRgb p = reinterpret_cast<QRgb*>(tmp.scanLine(y + 1))[x];
-                r -= k * qRed(p);   g -= k * qGreen(p);   b -= k * qBlue(p);
+            double r = qRed(c)   * (1.0 + 8.0 * k);
+            double g = qGreen(c) * (1.0 + 8.0 * k);
+            double b = qBlue(c)  * (1.0 + 8.0 * k);
+            for (int ky = -1; ky <= 1; ++ky) {
+                int sy = qBound(0, y + ky, tmp.height() - 1);
+                for (int kx = -1; kx <= 1; ++kx) {
+                    if (kx == 0 && ky == 0) continue;
+                    QRgb p = reinterpret_cast<QRgb*>(tmp.scanLine(sy))[qBound(0, x + kx, tmp.width() - 1)];
+                    r -= k * qRed(p);   g -= k * qGreen(p);   b -= k * qBlue(p);
+                }
             }
             int ri = qBound(0, (int)std::round(r), 255);
             int gi = qBound(0, (int)std::round(g), 255);
@@ -622,13 +614,139 @@ QImage ImageAlgorithm::vignette(const QImage &src, double radius, double strengt
 
 // ====================================================================
 // Pencil Sketch — grayscale + invert-blur + dodge blend
+// enhanced with paper grain texture and cross-hatching
 // ====================================================================
-QImage ImageAlgorithm::pencilSketch(const QImage &src, int blurRadius)
+
+// Generate paper-like grain noise (0..255, 0 = smooth, 255 = rough)
+static QImage generatePaperGrain(int w, int h, int seed)
+{
+    QImage grain(w, h, QImage::Format_Grayscale8);
+    QRandomGenerator rng(seed);
+    // White noise
+    for (int y = 0; y < h; ++y) {
+        uchar *line = grain.scanLine(y);
+        for (int x = 0; x < w; ++x)
+            line[x] = (uchar)(rng.bounded(256));
+    }
+
+    // Blur to make it organic (small kernel = paper fiber feel)
+    QImage blurred = ImageAlgorithm::gaussianBlur(grain, 2);
+    // Stretch contrast to restore range after blur
+    for (int y = 0; y < h; ++y) {
+        uchar *line = blurred.scanLine(y);
+        for (int x = 0; x < w; ++x) {
+            int v = line[x];
+            v = (v - 96) * 4;  // stretch around mid-gray
+            line[x] = (uchar)qBound(0, v, 255);
+        }
+    }
+    return blurred;
+}
+
+// Generate cross-hatching pattern: diagonal lines, density mapped to tone (0=black,255=white)
+static QImage generateHatching(int w, int h, const QImage &toneRef)
+{
+    QImage hatch(w, h, QImage::Format_Grayscale8);
+    hatch.fill(255); // start white
+
+    for (int y = 0; y < h; ++y) {
+        const uchar *tLine = toneRef.scanLine(y);
+        uchar *hLine = hatch.scanLine(y);
+        for (int x = 0; x < w; ++x) {
+            int tone = tLine[x];           // 0=black(shadow), 255=white(highlight)
+            // Line density: darker = more lines
+            double density = 1.0 - tone / 255.0;  // 0..1
+            if (density < 0.08) continue;  // skip near-white areas
+
+            // Check two diagonal directions (45° and 135°)
+            int phase1 = (x - y) & 63;     // 45° diagonal spacing = 64 pixels
+            int phase2 = (x + y) & 63;     // 135° diagonal spacing = 64 pixels
+            double lineWidth = density * 3.0;
+
+            bool onLine = (phase1 < lineWidth) || (phase2 < lineWidth);
+            if (onLine) {
+                int darken = (int)((1.0 - density) * 220 + density * 250);
+                hLine[x] = (uchar)qBound(0, darken, 255);
+            }
+        }
+    }
+    // Soften hatching slightly
+    hatch = ImageAlgorithm::gaussianBlur(hatch, 1);
+    return hatch;
+}
+
+// Histogram equalization for Grayscale8 image (detail boost)
+static QImage histogramEqualize(const QImage &gray, double strength)
+{
+    if (gray.isNull() || strength <= 0.0) return gray;
+    int total = gray.width() * gray.height();
+    if (total == 0) return gray;
+
+    int hist[256] = {0};
+    for (int y = 0; y < gray.height(); ++y) {
+        const uchar *line = gray.scanLine(y);
+        for (int x = 0; x < gray.width(); ++x)
+            hist[line[x]]++;
+    }
+
+    int cdf[256]; cdf[0] = hist[0];
+    for (int i = 1; i < 256; ++i) cdf[i] = cdf[i - 1] + hist[i];
+    int cdfMin = 0;
+    for (int i = 0; i < 256; ++i) { if (cdf[i] > 0) { cdfMin = cdf[i]; break; } }
+
+    double scale = 255.0 / (total - cdfMin);
+    int lut[256];
+    for (int i = 0; i < 256; ++i)
+        lut[i] = qBound(0, (int)std::round((cdf[i] - cdfMin) * scale), 255);
+
+    if (strength >= 1.0) {
+        QImage result(gray.size(), QImage::Format_Grayscale8);
+        for (int y = 0; y < gray.height(); ++y) {
+            const uchar *s = gray.scanLine(y);
+            uchar *d = result.scanLine(y);
+            for (int x = 0; x < gray.width(); ++x)
+                d[x] = (uchar)lut[s[x]];
+        }
+        return result;
+    }
+    QImage result(gray.size(), QImage::Format_Grayscale8);
+    for (int y = 0; y < gray.height(); ++y) {
+        const uchar *s = gray.scanLine(y);
+        uchar *d = result.scanLine(y);
+        for (int x = 0; x < gray.width(); ++x) {
+            int eq = lut[s[x]];
+            d[x] = (uchar)qBound(0, (int)(s[x] * (1.0 - strength) + eq * strength), 255);
+        }
+    }
+    return result;
+}
+
+QImage ImageAlgorithm::pencilSketch(const QImage &src, int blurRadius, double detailBoost)
 {
     if (src.isNull()) return {};
     int rad = qBound(1, blurRadius, 15);
+    double db = qBound(0.0, detailBoost, 1.0);
+    int w = src.width(), h = src.height();
+    if (w > 2000 || h > 2000) {
+        QImage small = src.scaled(2000, 2000, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        QImage result = pencilSketch(small, blurRadius, detailBoost);
+        return result.scaled(w, h, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    }
 
     QImage gray = toGrayscale(src);
+
+    // Histogram equalization to preserve highlight/shadow details
+    QImage eq = histogramEqualize(gray, db);
+    if (db > 0.0 && db < 1.0) {
+        for (int y = 0; y < gray.height(); ++y) {
+            const uchar *s = gray.scanLine(y);
+            const uchar *e = eq.scanLine(y);
+            uchar *d = eq.scanLine(y);
+            for (int x = 0; x < gray.width(); ++x)
+                d[x] = (uchar)(s[x] * (1.0 - db) + e[x] * db);
+        }
+    }
+    gray = (db > 0.0) ? eq : gray;
     QImage inv(gray.size(), QImage::Format_Grayscale8);
     for (int y = 0; y < gray.height(); ++y) {
         const uchar *s = gray.scanLine(y);
@@ -642,6 +760,7 @@ QImage ImageAlgorithm::pencilSketch(const QImage &src, int blurRadius)
     blurred = blurred.convertToFormat(QImage::Format_ARGB32);
 
     QImage dst(gray.size(), QImage::Format_ARGB32);
+    // Dodge-blend to get base sketch
     for (int y = 0; y < gray.height(); ++y) {
         QRgb *gLine = reinterpret_cast<QRgb*>(gray.scanLine(y));
         QRgb *bLine = reinterpret_cast<QRgb*>(blurred.scanLine(y));
@@ -654,6 +773,42 @@ QImage ImageAlgorithm::pencilSketch(const QImage &src, int blurRadius)
             dLine[x] = qRgba(sketch, sketch, sketch, 255);
         }
     }
+
+    // Generate and blend paper grain texture
+    QImage grain = generatePaperGrain(w, h, 42);
+    QImage gray8 = dst.convertToFormat(QImage::Format_Grayscale8);
+    QImage hatch = generateHatching(w, h, gray8);
+
+    // Composite grain + hatching onto sketch
+    // Coefficients: keep sketch as base, overlay grain and hatch
+    for (int y = 0; y < h; ++y) {
+        QRgb *dLine = reinterpret_cast<QRgb*>(dst.scanLine(y));
+        uchar *gLine = grain.scanLine(y);
+        uchar *hLine = hatch.scanLine(y);
+        for (int x = 0; x < w; ++x) {
+            int sketch = qRed(dLine[x]);
+            int grainV = gLine[x];
+            int hatchV = hLine[x];
+
+            // Combine: grain affects mid-tones more
+            double sketchN = sketch / 255.0;
+            double grainN  = (grainV - 128) / 128.0;  // -1..+1
+
+            // Grain modulated by mid-tone prominence (most visible on 50% gray)
+            double grainFactor = 1.0 - std::abs(sketchN - 0.5) * 2.0;
+            grainFactor = qMax(0.0, grainFactor) * 0.25;
+
+            int v = (int)(sketch + grainN * grainFactor * 255.0);
+
+            // Hatching overlay: multiply (darkens)
+            double hatchFactor = hatchV / 255.0;
+            v = (int)(v * (0.7 + 0.3 * hatchFactor));
+
+            v = qBound(0, v, 255);
+            dLine[x] = qRgba(v, v, v, 255);
+        }
+    }
+
     return dst;
 }
 
@@ -992,4 +1147,133 @@ QImage ImageAlgorithm::toneCurve(const QImage &src, const QVector<QPointF> &poin
         }
     }
     return dst;
+}
+
+// ====================================================================
+// Auto Levels — stretch luminance histogram to fill full range
+// ====================================================================
+QImage ImageAlgorithm::autoLevels(const QImage &src, double clipPercent)
+{
+    if (src.isNull()) return {};
+    double clip = qBound(0.001, clipPercent, 5.0);
+    QImage argb = src.convertToFormat(QImage::Format_ARGB32);
+    int w = argb.width(), h = argb.height();
+    int total = w * h;
+    if (total == 0) return {};
+
+    // Build luminance histogram
+    int hist[256] = {0};
+    for (int y = 0; y < h; ++y) {
+        const QRgb *line = reinterpret_cast<const QRgb*>(argb.constScanLine(y));
+        for (int x = 0; x < w; ++x) {
+            QRgb px = line[x];
+            int lum = qGray(px);
+            hist[lum]++;
+        }
+    }
+
+    // Find low percentile
+    int clipCount = (int)(total * clip / 100.0);
+    int lowVal = 0, sum = 0;
+    for (int i = 0; i < 256; ++i) {
+        sum += hist[i];
+        if (sum > clipCount) { lowVal = i; break; }
+    }
+
+    // Find high percentile
+    int highVal = 255;
+    sum = 0;
+    for (int i = 255; i >= 0; --i) {
+        sum += hist[i];
+        if (sum > clipCount) { highVal = i; break; }
+    }
+
+    if (highVal <= lowVal) return argb;
+
+    // Build LUT: [lowVal, highVal] → [0, 255]
+    int lut[256];
+    double range = highVal - lowVal;
+    for (int i = 0; i < 256; ++i) {
+        if (i <= lowVal)         lut[i] = 0;
+        else if (i >= highVal)   lut[i] = 255;
+        else                     lut[i] = (int)((i - lowVal) / range * 255.0);
+    }
+
+    // Apply same LUT to all channels (preserves color balance)
+    QImage dst(argb.size(), QImage::Format_ARGB32);
+    for (int y = 0; y < h; ++y) {
+        const QRgb *srcLine = reinterpret_cast<const QRgb*>(argb.constScanLine(y));
+        QRgb *dstLine = reinterpret_cast<QRgb*>(dst.scanLine(y));
+        for (int x = 0; x < w; ++x) {
+            QRgb px = srcLine[x];
+            dstLine[x] = qRgba(lut[qRed(px)], lut[qGreen(px)], lut[qBlue(px)], qAlpha(px));
+        }
+    }
+    return dst;
+}
+
+// ====================================================================
+// Auto Enhance — full pipeline
+// ====================================================================
+QImage ImageAlgorithm::autoEnhance(const QImage &src, double strength)
+{
+    if (src.isNull()) return {};
+    double s = qBound(0.0, strength, 1.0);
+    if (s < 0.005) return src;
+
+    QImage result = src.convertToFormat(QImage::Format_ARGB32);
+
+    // 1. Auto white balance (correct color casts)
+    result = autoWhiteBalance(result);
+
+    // 2. Auto levels (stretch histogram to fill full dynamic range)
+    result = autoLevels(result, 0.1);
+
+    // 3. S-curve for contrast enhancement
+    if (s > 0.05) {
+        double curveStr = 0.12 * s;
+        QVector<QPointF> sCurve = {
+            {0.0,   0.0},
+            {0.25,  0.25 - curveStr * 0.25},
+            {0.5,   0.5},
+            {0.75,  0.75 + curveStr * 0.25},
+            {1.0,   1.0}
+        };
+        result = toneCurve(result, sCurve, true);
+    }
+
+    // 4. Clarity (mid-frequency detail enhancement)
+    if (s > 0.1) {
+        double clarityAmt = 0.15 * s;
+        result = clarity(result, clarityAmt, 5);
+    }
+
+    // 5. Saturation boost
+    if (s > 0.05) {
+        double satFactor = 1.0 + 0.2 * s;
+        result = saturation(result, satFactor);
+    }
+
+    // 6. Blend with original by strength
+    if (s < 1.0) {
+        QImage orig = src.convertToFormat(QImage::Format_ARGB32);
+        int w = result.width(), h = result.height();
+        QImage blended(w, h, QImage::Format_ARGB32);
+        for (int y = 0; y < h; ++y) {
+            const QRgb *rLine = reinterpret_cast<const QRgb*>(result.constScanLine(y));
+            const QRgb *oLine = reinterpret_cast<const QRgb*>(orig.constScanLine(y));
+            QRgb *dLine = reinterpret_cast<QRgb*>(blended.scanLine(y));
+            for (int x = 0; x < w; ++x) {
+                QRgb rp = rLine[x], op = oLine[x];
+                dLine[x] = qRgba(
+                    clamp((int)(qRed(op)   * (1.0 - s) + qRed(rp)   * s)),
+                    clamp((int)(qGreen(op) * (1.0 - s) + qGreen(rp) * s)),
+                    clamp((int)(qBlue(op)  * (1.0 - s) + qBlue(rp)  * s)),
+                    qAlpha(op));
+            }
+        }
+        return blended;
+    }
+
+    return result;
 }

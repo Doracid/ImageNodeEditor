@@ -44,8 +44,8 @@ public:
     static QImage pixelate(const QImage &src, int blockSize);
     // Vignette: radius[0,1], strength[0,5]
     static QImage vignette(const QImage &src, double radius, double strength);
-    // Pencil sketch: blurRadius[1,15]
-    static QImage pencilSketch(const QImage &src, int blurRadius);
+    // Pencil sketch: blurRadius[1,15], detailBoost[0,1] histogram equalization strength
+    static QImage pencilSketch(const QImage &src, int blurRadius, double detailBoost = 0.5);
     // Cartoon: edgeThreshold[0,255], levels[2,16]
     static QImage cartoon(const QImage &src, int edgeThreshold, int levels);
 
@@ -81,6 +81,14 @@ public:
     // ---- Tone Curve (256-level LUT from control points) ----
     // points: list of (x,y) in [0,1]; mono=true → same curve for all channels
     static QImage toneCurve(const QImage &src, const QVector<QPointF> &points, bool mono = true);
+
+    // ---- Auto enhancement ----
+    // Auto levels: stretch histogram to full range with optional clipping
+    // clipPercent: 0.01~1.0, typical 0.1
+    static QImage autoLevels(const QImage &src, double clipPercent = 0.1);
+    // Full auto-enhance pipeline: auto white balance → auto levels → S-curve → saturation
+    // strength: 0.0~1.0 controls overall effect intensity
+    static QImage autoEnhance(const QImage &src, double strength = 0.5);
 
     // ---- Conversion ----
     static QImage toGrayscale(const QImage &src);

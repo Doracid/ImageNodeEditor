@@ -20,6 +20,7 @@
 #include <QStatusBar>
 #include <QApplication>
 #include <QKeyEvent>
+#include <QTimer>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -89,12 +90,23 @@ void MainWindow::setupMenuBar()
 
     // Edit menu
     auto *editMenu = menuBar()->addMenu("&编辑");
+    editMenu->addAction("撤销 (&Z)", m_scene, &NodeScene::undo, QKeySequence::Undo);
+    editMenu->addSeparator();
     editMenu->addAction("全&选", m_scene, [this]() { m_scene->clearSelection(); for (auto *item : m_scene->items()) { item->setSelected(true); } }, QKeySequence::SelectAll);
     editMenu->addAction("&删除选中", this, [this]() { m_scene->deleteSelected(); }, QKeySequence::Delete);
 
     // Run menu
     auto *runMenu = menuBar()->addMenu("&运行");
     runMenu->addAction("&执行工作流", this, &MainWindow::executeWorkflow, QKeySequence("Ctrl+R"));
+    runMenu->addSeparator();
+    m_autoConnectAction = runMenu->addAction("自动连线 (F6)", this, [this]() {
+        int before = m_scene->engine()->allConnections().size();
+        m_scene->autoConnect();
+        int after = m_scene->engine()->allConnections().size();
+        int added = after - before;
+        m_logPanel->log(QString("自动连线: 新增 %1 条连线").arg(added));
+        statusBar()->showMessage(QString("自动连线完成，新增 %1 条连线").arg(added), 3000);
+    }, QKeySequence("F6"));
 
     // Help menu
     auto *helpMenu = menuBar()->addMenu("&帮助");
@@ -116,6 +128,8 @@ void MainWindow::setupToolBar()
     toolBar->addAction("📂 打开", this, &MainWindow::onLoadWorkflow);
     toolBar->addSeparator();
     toolBar->addAction("🗑 清空", this, &MainWindow::onClearAll);
+    toolBar->addSeparator();
+    toolBar->addAction(m_autoConnectAction);
 }
 
 // ---------------------------------------------------------------------------
@@ -157,6 +171,25 @@ void MainWindow::setupCentralWidget()
     connect(m_propertyPanel, &PropertyPanel::paramChanged, this, [this]() {
         statusBar()->showMessage("参数已更新", 3000);
         m_logPanel->log("参数已更新");
+        // 自动执行工作流（延迟一帧，避免表单编辑时反复触发）
+        QTimer::singleShot(0, this, [this]() {
+            if (m_scene->engine()->allNodes().size() >= 2 &&
+                !m_scene->engine()->allConnections().isEmpty())
+            {
+                QString errorMsg;
+                WorkflowEngine::ResultMap results;
+                m_scene->engine()->execute(results, errorMsg);
+                // Store outputs for preview
+                for (auto *node : m_scene->engine()->allNodes()) {
+                    auto it = results.constFind(node->id());
+                    if (it != results.constEnd() && !it->isEmpty()) {
+                        QImage firstImg = it->first().image();
+                        if (!firstImg.isNull())
+                            node->setProperty("__lastOutput", QVariant::fromValue(firstImg));
+                    }
+                }
+            }
+        });
     });
 }
 

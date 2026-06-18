@@ -5,6 +5,8 @@
 #include <QGraphicsScene>
 #include <QMap>
 #include <QUuid>
+#include <QJsonObject>
+#include <QVector>
 
 class NodeGraphicsItem;
 class PortGraphicsItem;
@@ -50,6 +52,9 @@ public:
     // Delete currently selected items
     void deleteSelected();
 
+    // Auto-connect all nodes left-to-right
+    void autoConnect();
+
     // Replace node (keep connections if port types are compatible)
     bool replaceNode(const QUuid &oldNodeId, const QString &newTypeName, QString &errorMsg);
 
@@ -65,6 +70,7 @@ signals:
 
 public slots:
     void startNodeReplace(const QUuid &nodeId);
+    void undo();
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;
@@ -82,4 +88,9 @@ private:
     bool m_dragging = false;
     PortGraphicsItem *m_dragSource = nullptr;
     QGraphicsLineItem *m_dragLine = nullptr;
+
+    // Undo stack
+    QVector<QJsonObject> m_undoStack;
+    static constexpr int kMaxUndo = 50;
+    void saveSnapshot();
 };

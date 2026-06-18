@@ -27,13 +27,13 @@ bool CropNode::process(const QVector<DataPacket> &inputs,
     int h = m_params["height"].toInt();
 
     if (x + w > src.width() || y + h > src.height()) {
-        errorMsg = QString("Crop region (%1,%2 %3x%4) exceeds image bounds (%5x%6)")
+        errorMsg = QString("裁剪区域 (%1,%2 %3x%4) 超出图像边界 (%5x%6)")
                        .arg(x).arg(y).arg(w).arg(h).arg(src.width()).arg(src.height());
         return false;
     }
 
     QImage result = ImageAlgorithm::crop(src, x, y, w, h);
-    if (result.isNull()) { errorMsg = "Crop failed."; return false; }
+    if (result.isNull()) { errorMsg = "裁剪失败。"; return false; }
     outputs[0] = DataPacket(result);
     return true;
 }

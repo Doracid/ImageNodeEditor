@@ -108,6 +108,7 @@ int main(int argc, char *argv[])
 #include "nodes/WhitesBlacksNode.h"
 #include "nodes/ClarityNode.h"
 #include "nodes/ToneCurveNode.h"
+#include "nodes/AutoEnhanceNode.h"
 
 void registerAllNodeTypes()
 {
@@ -146,4 +147,5 @@ void registerAllNodeTypes()
     reg.registerType("WhitesBlacksNode",   "色彩调整",  "白色/黑色",   "调整白点和黑点（端点裁剪）", []() -> Node* { return new WhitesBlacksNode(); });
     reg.registerType("ClarityNode",        "滤波",      "清晰度",      "中频对比度增强",              []() -> Node* { return new ClarityNode(); });
     reg.registerType("ToneCurveNode",      "色彩调整",  "色调曲线",    "256 级 LUT 色调曲线",        []() -> Node* { return new ToneCurveNode(); });
+    reg.registerType("AutoEnhanceNode",    "色彩调整",  "自动美化",    "自动白平衡+色阶+S曲线+饱和度",[]() -> Node* { return new AutoEnhanceNode(); });
 }

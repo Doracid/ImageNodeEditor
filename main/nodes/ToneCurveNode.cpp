@@ -19,8 +19,8 @@ static double evalSmooth(double x, const QVector<QPointF> &pts)
 {
     int n = pts.size();
     if (n < 2) return x;
-    if (x <= pts[0].x()) return pts[0].y();
-    if (x >= pts[n - 1].x()) return pts[n - 1].y();
+    if (x <= pts[0].x()) return qBound(0.0, pts[0].y(), 1.0);
+    if (x >= pts[n - 1].x()) return qBound(0.0, pts[n - 1].y(), 1.0);
 
     int seg = 0;
     for (int i = 0; i < n - 1; ++i) {
@@ -35,9 +35,10 @@ static double evalSmooth(double x, const QVector<QPointF> &pts)
     double t = (x - p1.x()) / (p2.x() - p1.x());
     double t2 = t * t, t3 = t2 * t;
 
-    return 0.5 * ((2.0 * p1.y()) + (-p0.y() + p2.y()) * t
+    double y = 0.5 * ((2.0 * p1.y()) + (-p0.y() + p2.y()) * t
         + (2.0 * p0.y() - 5.0 * p1.y() + 4.0 * p2.y() - p3.y()) * t2
         + (-p0.y() + 3.0 * p1.y() - 3.0 * p2.y() + p3.y()) * t3);
+    return qBound(0.0, y, 1.0);
 }
 
 // ====================================================================
@@ -124,26 +125,21 @@ void CurveEditor::paintEvent(QPaintEvent *)
     p.setPen(QPen(QColor(90, 90, 95), 1.0));
     p.drawLine(normToWidget(QPointF(0, 0)), normToWidget(QPointF(1, 1)));
 
-    // Curve (smooth Catmull-Rom style via cubic bezier)
+    // Curve — sampled from evalSmooth to match actual LUT output exactly
     if (m_points.size() >= 2) {
         QPainterPath curvePath;
-        const int n = m_points.size();
-        if (n == 2) {
-            // Straight line for exactly 2 points
+        if (m_points.size() == 2) {
+            // Straight line for default diagonal (avoid Catmull-Rom endpoint artifact)
             curvePath.moveTo(normToWidget(m_points[0]));
             curvePath.lineTo(normToWidget(m_points[1]));
         } else {
-            curvePath.moveTo(normToWidget(m_points[0]));
-            for (int i = 0; i < n - 1; ++i) {
-                QPointF p0 = m_points[qMax(0, i - 1)];
-                QPointF p1 = m_points[i];
-                QPointF p2 = m_points[i + 1];
-                QPointF p3 = m_points[qMin(n - 1, i + 2)];
-
-                QPointF cp1 = p1 + (p2 - p0) / 6.0;
-                QPointF cp2 = p2 - (p3 - p1) / 6.0;
-
-                curvePath.cubicTo(normToWidget(cp1), normToWidget(cp2), normToWidget(p2));
+            const int samples = 128;
+            curvePath.moveTo(normToWidget(QPointF(m_points[0].x(), evalSmooth(m_points[0].x(), m_points))));
+            for (int i = 1; i <= samples; ++i) {
+                double x = m_points[0].x() + (m_points.last().x() - m_points[0].x()) * i / samples;
+                double y = evalSmooth(x, m_points);
+                y = qBound(0.0, y, 1.0);
+                curvePath.lineTo(normToWidget(QPointF(x, y)));
             }
         }
 

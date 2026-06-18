@@ -4,6 +4,7 @@
 #include <QPointer>
 #include <QTabWidget>
 #include <QUuid>
+#include <QAction>
 
 class NodeScene;
 class NodeView;
@@ -50,4 +51,5 @@ private:
     QTabWidget     *m_rightTabs;
     PreviewDialog  *m_previewDialog = nullptr;
     QUuid           m_replaceNodeId;
+    QAction        *m_autoConnectAction = nullptr;
 };

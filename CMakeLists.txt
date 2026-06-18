@@ -50,6 +50,7 @@ set(SOURCES
     main/nodes/WhitesBlacksNode.cpp
     main/nodes/ClarityNode.cpp
     main/nodes/ToneCurveNode.cpp
+    main/nodes/AutoEnhanceNode.cpp
     main/gui/MainWindow.cpp
     main/gui/NodeScene.cpp
     main/gui/NodeView.cpp
@@ -105,6 +106,7 @@ set(HEADERS
     main/nodes/WhitesBlacksNode.h
     main/nodes/ClarityNode.h
     main/nodes/ToneCurveNode.h
+    main/nodes/AutoEnhanceNode.h
     main/gui/MainWindow.h
     main/gui/NodeScene.h
     main/gui/NodeView.h
