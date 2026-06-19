@@ -5,3 +5,10 @@ test_batch/
 CMakeSettings.json
 *.user
 .vs/
+*.obj
+~$*
+.DS_Store
+.claude/
+x64/
+main/x64/
+test_png.obj

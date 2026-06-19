@@ -32,6 +32,9 @@ NodeGraphicsItem *NodeScene::addNodeToScene(Node *node, const QPointF &pos)
     auto *item = new NodeGraphicsItem(node);
     addItem(item);
     item->setPos(pos.isNull() ? QPointF(0, 0) : pos);
+    // Persist position onto the engine node for snapshot capture
+    node->setParam("__posX", item->pos().x());
+    node->setParam("__posY", item->pos().y());
     m_nodeItems[node->id()] = item;
     emit workflowModified();
     return item;
@@ -164,11 +167,22 @@ void NodeScene::endConnection(PortGraphicsItem *target)
 // ---------------------------------------------------------------------------
 void NodeScene::nodeMoved(NodeGraphicsItem *item)
 {
-    // Update all connections attached to this node
+    // Update all connections attached to this node (called on every pixel drag)
     for (auto *conn : m_connectionItems) {
         if (conn->sourceNodeId() == item->nodeId() ||
             conn->targetNodeId() == item->nodeId())
             conn->updatePath();
+    }
+}
+
+void NodeScene::nodeMoveFinished(NodeGraphicsItem *item)
+{
+    // Snapshot the state BEFORE the move so Ctrl+Z can restore the old position.
+    saveSnapshot();
+    // Persist final position after the snapshot was taken.
+    if (Node *n = m_engine.node(item->nodeId())) {
+        n->setParam("__posX", item->pos().x());
+        n->setParam("__posY", item->pos().y());
     }
 }
 
@@ -304,7 +318,6 @@ void NodeScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 void NodeScene::autoConnect()
 {
     if (m_nodeItems.size() < 2) return;
-    saveSnapshot();
 
     // Sort nodes by X position (left to right)
     QList<NodeGraphicsItem*> items = m_nodeItems.values();
@@ -313,29 +326,77 @@ void NodeScene::autoConnect()
                   return a->pos().x() < b->pos().x();
               });
 
+    // Pool of available output ports from nodes that have been "fed" —
+    // either source nodes (0 inputs) or nodes that received ≥1 input connection.
+    // This prevents dangling nodes (whose inputs couldn't be satisfied) from
+    // polluting the pool with their outputs.
+    struct AvailOut {
+        QUuid nodeId;
+        int   portIndex;
+        DataType dataType;
+    };
+    QVector<AvailOut> available;
+
+    auto removeFromAvailable = [&](const QUuid &nodeId, int portIndex) {
+        for (int i = 0; i < available.size(); ++i) {
+            if (available[i].nodeId == nodeId && available[i].portIndex == portIndex) {
+                available.removeAt(i);
+                return;
+            }
+        }
+    };
+
     int connected = 0;
-    for (int i = 0; i < items.size() - 1; ++i) {
-        NodeGraphicsItem *left = items[i];
-        NodeGraphicsItem *right = items[i + 1];
+    for (auto *item : items) {
+        const QUuid nodeId = item->nodeId();
+        Node *node = m_engine.node(nodeId);
+        if (!node) continue;
 
-        // Try every output port on left with every input port on right
-        bool found = false;
-        for (auto *outPort : left->outputPortItems()) {
-            if (found) break;
-            for (auto *inPort : right->inputPortItems()) {
-                if (found) break;
-                // Skip if already connected
-                if (!m_engine.inputConnectionFor(right->nodeId(), inPort->port().index).sourceNodeId.isNull())
+        // Try to satisfy each unconnected input port from the available pool
+        int inputsFed = 0;
+        for (int pi = 0; pi < node->inputPorts().size(); ++pi) {
+            if (!m_engine.inputConnectionFor(nodeId, pi).sourceNodeId.isNull()) {
+                ++inputsFed;
+                continue;
+            }
+
+            const Port &inPort = node->inputPorts()[pi];
+            int bestIdx = -1;
+
+            // Scan available outputs: prefer exact type match over Any fallback
+            for (int ai = 0; ai < available.size(); ++ai) {
+                if (!isTypeCompatible(available[ai].dataType, inPort.dataType))
                     continue;
-
-                QString err;
-                if (m_engine.canConnect(left->nodeId(), outPort->port().index,
-                                         right->nodeId(), inPort->port().index, err)) {
-                    addConnectionToScene(left->nodeId(), outPort->port().index,
-                                          right->nodeId(), inPort->port().index);
-                    connected++;
-                    found = true;
+                if (available[ai].dataType == inPort.dataType ||
+                    inPort.dataType == DataType::Any) {
+                    bestIdx = ai;
+                    break;
                 }
+                if (bestIdx < 0)
+                    bestIdx = ai;
+            }
+
+            if (bestIdx < 0) continue;
+
+            const auto &avail = available[bestIdx];
+            QString err;
+            if (m_engine.canConnect(avail.nodeId, avail.portIndex,
+                                     nodeId, pi, err)) {
+                addConnectionToScene(avail.nodeId, avail.portIndex,
+                                     nodeId, pi);
+                connected++;
+                ++inputsFed;
+                removeFromAvailable(avail.nodeId, avail.portIndex);
+            }
+        }
+
+        // Only add outputs to the pool when this node is actually fed:
+        // it has no inputs (source node) or at least one input was connected.
+        // This prevents dangling nodes from leaking their outputs into the pool
+        // and causing cross-wiring (e.g. Invert without input supplying ImageOutput).
+        if (node->inputPorts().isEmpty() || inputsFed > 0) {
+            for (int pi = 0; pi < node->outputPorts().size(); ++pi) {
+                available.append({ nodeId, pi, node->outputPorts()[pi].dataType });
             }
         }
     }
@@ -459,6 +520,7 @@ bool NodeScene::replaceNode(const QUuid &oldNodeId, const QString &newTypeName, 
 // ---------------------------------------------------------------------------
 void NodeScene::saveSnapshot()
 {
+    if (m_suppressSnapshot) return;
     QJsonObject state = WorkflowSerializer::save(m_engine);
     // Remove positions beyond undo limit
     while (m_undoStack.size() >= kMaxUndo)
@@ -478,7 +540,11 @@ void NodeScene::undo()
             selectedIds.append(n->nodeId());
     }
 
-    // Clear current scene (remove all items first, then clear engine)
+    // Suppress snapshots during restore so addNodeToScene/addConnectionToScene
+    // don't push new states onto the undo stack (which would create an infinite loop).
+    m_suppressSnapshot = true;
+
+    // Clear current scene
     for (auto *conn : m_connectionItems) {
         removeItem(conn);
         delete conn;
@@ -495,7 +561,7 @@ void NodeScene::undo()
     QString err;
     WorkflowEngine tempEngine;
     if (!WorkflowSerializer::load(state, tempEngine, err)) {
-        // If restore fails, undo stack is already popped — nothing more we can do
+        m_suppressSnapshot = false;
         return;
     }
 
@@ -521,6 +587,7 @@ void NodeScene::undo()
     for (const auto &c : tempEngine.allConnections())
         addConnectionToScene(c.sourceNodeId, c.sourcePort, c.targetNodeId, c.targetPort);
 
+    m_suppressSnapshot = false;
     emit workflowModified();
 }
 

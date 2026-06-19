@@ -155,6 +155,21 @@ void NodeGraphicsItem::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
     if (s) s->nodeDoubleClicked(this);
 }
 
+void NodeGraphicsItem::mousePressEvent(QGraphicsSceneMouseEvent *event)
+{
+    m_dragStartPos = pos();
+    QGraphicsItem::mousePressEvent(event);
+}
+
+void NodeGraphicsItem::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
+{
+    QGraphicsItem::mouseReleaseEvent(event);
+    if (event->button() == Qt::LeftButton && pos() != m_dragStartPos) {
+        NodeScene *s = qobject_cast<NodeScene*>(scene());
+        if (s) s->nodeMoveFinished(this);
+    }
+}
+
 void NodeGraphicsItem::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
 {
     QMenu menu;

@@ -41,6 +41,7 @@ public:
 
     // Notifications from items
     void nodeMoved(NodeGraphicsItem *item);
+    void nodeMoveFinished(NodeGraphicsItem *item);
     void nodeDoubleClicked(NodeGraphicsItem *item);
 
     // Delete a specific node by id
@@ -93,4 +94,5 @@ private:
     QVector<QJsonObject> m_undoStack;
     static constexpr int kMaxUndo = 50;
     void saveSnapshot();
+    bool m_suppressSnapshot = false;
 };

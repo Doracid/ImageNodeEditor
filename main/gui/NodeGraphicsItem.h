@@ -36,12 +36,15 @@ protected:
     QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
     void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event) override;
     void contextMenuEvent(QGraphicsSceneContextMenuEvent *event) override;
+    void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
+    void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override;
 
 private:
     Node *m_node;
     QVector<PortGraphicsItem*> m_inputPorts;
     QVector<PortGraphicsItem*> m_outputPorts;
     QRectF m_rect;
+    QPointF m_dragStartPos;
 
     static constexpr double kWidth  = 160;
     static constexpr double kTitleH = 28;
