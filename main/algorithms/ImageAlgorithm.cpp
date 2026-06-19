@@ -702,6 +702,109 @@ QImage ImageAlgorithm::pixelate(const QImage &src, int blockSize)
 }
 
 // ====================================================================
+// Pixel Art — pixelation with per-pixel shape styles and optional outline
+// shapeMode: 0=square, 1=rounded square, 2=circle
+// showOutline: true = draw black border around each pixel
+// bgWhite: true=white background, false=black background
+// ====================================================================
+QImage ImageAlgorithm::pixelArt(const QImage &src, int blockSize, int shapeMode, bool showOutline, int outlineWidth, bool bgWhite)
+{
+    if (src.isNull()) return {};
+    int bs = qMax(2, blockSize);
+    QImage input = src.convertToFormat(QImage::Format_ARGB32);
+    int w = input.width(), h = input.height();
+
+    QImage dst(w, h, QImage::Format_ARGB32);
+    QColor bgColor = bgWhite ? Qt::white : Qt::black;
+    dst.fill(bgColor);
+
+    // Pre-compute block colors (top-left pixel of each block)
+    struct BlockColor { int r, g, b; };
+    int cols = (w + bs - 1) / bs;
+    int rows = (h + bs - 1) / bs;
+    QVector<QVector<BlockColor>> blockColors(rows, QVector<BlockColor>(cols));
+    for (int by = 0; by < rows; ++by) {
+        for (int bx = 0; bx < cols; ++bx) {
+            int sx = bx * bs, sy = by * bs;
+            QRgb color = reinterpret_cast<QRgb*>(input.scanLine(sy))[sx];
+            blockColors[by][bx] = { qRed(color), qGreen(color), qBlue(color) };
+        }
+    }
+
+    // Square + no outline → fast path: just fill blocks like pixelate
+    if (shapeMode == 0 && !showOutline) {
+        for (int by = 0; by < rows; ++by) {
+            for (int bx = 0; bx < cols; ++bx) {
+                int x = bx * bs, y = by * bs;
+                int bw = qMin(bs, w - x);
+                int bh = qMin(bs, h - y);
+                auto &c = blockColors[by][bx];
+                QRgb color = qRgba(c.r, c.g, c.b, 255);
+                for (int dy = 0; dy < bh; ++dy) {
+                    QRgb *line = reinterpret_cast<QRgb*>(dst.scanLine(y + dy));
+                    for (int dx = 0; dx < bw; ++dx)
+                        line[x + dx] = color;
+                }
+            }
+        }
+        return dst;
+    }
+
+    // Use QPainter for shape drawing
+    QPainter p(&dst);
+    p.setRenderHint(QPainter::Antialiasing);
+
+    QPen outlinePen(Qt::black, qMax(1, outlineWidth));
+
+    for (int by = 0; by < rows; ++by) {
+        for (int bx = 0; bx < cols; ++bx) {
+            int x = bx * bs, y = by * bs;
+            int bw = qMin(bs, w - x);
+            int bh = qMin(bs, h - y);
+            auto &c = blockColors[by][bx];
+            QColor fillColor(c.r, c.g, c.b);
+
+            const int margin = qMax(1, bs / 16) + (showOutline ? outlineWidth : 0);
+            int sx = x + margin;
+            int sy = y + margin;
+            int sw = bw - 2 * margin;
+            int sh = bh - 2 * margin;
+            if (sw < 1 || sh < 1) {
+                p.fillRect(x, y, bw, bh, fillColor);
+                continue;
+            }
+
+            p.setBrush(fillColor);
+            if (showOutline)
+                p.setPen(outlinePen);
+            else
+                p.setPen(Qt::NoPen);
+
+            switch (shapeMode) {
+            case 0: // Square
+                p.drawRect(sx, sy, sw, sh);
+                break;
+            case 1: { // Rounded square
+                int cornerR = qMin(sw, sh) / 4;
+                p.drawRoundedRect(sx, sy, sw, sh, cornerR, cornerR);
+                break;
+            }
+            case 2: { // Circle
+                int cx = x + bw / 2;
+                int cy = y + bh / 2;
+                int radius = qMin(bw, bh) / 2 - margin;
+                if (radius > 0)
+                    p.drawEllipse(QPoint(cx, cy), radius, radius);
+                break;
+            }
+            }
+        }
+    }
+    p.end();
+    return dst;
+}
+
+// ====================================================================
 // Vignette — radial falloff from center
 // ====================================================================
 QImage ImageAlgorithm::vignette(const QImage &src, double radius, double strength)
@@ -2045,3 +2148,4 @@ QImage ImageAlgorithm::metalEmboss(const QImage &src, int metalType,
     }
     return result;
 }
+

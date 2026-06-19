@@ -46,6 +46,8 @@ public:
     static QImage fade(const QImage &src, double fade);
     // Pixelate: blockSize >= 2
     static QImage pixelate(const QImage &src, int blockSize);
+    // Pixel art: blockSize >= 2, shapeMode: 0=square, 1=rounded, 2=circle, showOutline: true=black border
+    static QImage pixelArt(const QImage &src, int blockSize, int shapeMode, bool showOutline, int outlineWidth, bool bgWhite);
     // Vignette: radius[0,1], strength[0,5]
     static QImage vignette(const QImage &src, double radius, double strength);
     // Pencil sketch: blurRadius[1,15], detailBoost[0,1] histogram equalization strength
