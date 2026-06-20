@@ -7,7 +7,7 @@
 #include <QCursor>
 
 PortGraphicsItem::PortGraphicsItem(const Port &port, NodeGraphicsItem *parent)
-    : QGraphicsEllipseItem(-6, -6, 12, 12, parent)
+    : QGraphicsEllipseItem(-7, -7, 14, 14, parent)
     , m_port(port)
     , m_nodeItem(parent)
 {

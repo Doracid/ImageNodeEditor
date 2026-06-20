@@ -88,6 +88,14 @@ bool WorkflowEngine::canConnect(const QUuid &sourceNode, int sourcePort,
         }
     }
 
+    // Check if source port already has an outgoing connection
+    for (const auto &c : m_connections) {
+        if (c.sourceNodeId == sourceNode && c.sourcePort == sourcePort) {
+            errorMsg = QStringLiteral("Source port already has a connection.");
+            return false;
+        }
+    }
+
     return true;
 }
 

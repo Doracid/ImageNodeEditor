@@ -40,11 +40,51 @@ NodeGraphicsItem *NodeScene::addNodeToScene(Node *node, const QPointF &pos)
     return item;
 }
 
-void NodeScene::removeNodeFromScene(const QUuid &nodeId)
+void NodeScene::removeNodeFromScene(const QUuid &nodeId, bool autoBypass)
 {
-    saveSnapshot();
     auto *item = m_nodeItems.value(nodeId);
     if (!item) return;
+
+    // Record bypass connections before deletion
+    struct Bypass {
+        QUuid srcNodeId; int srcPort;
+        QUuid tgtNodeId; int tgtPort;
+    };
+    QVector<Bypass> bypasses;
+
+    if (autoBypass) {
+        Node *node = item->node();
+        // Skip multi-port nodes (ChannelSplit / ChannelMerge)
+        if (node->category() != QStringLiteral("MultiPort")) {
+            // Collect all incoming connections (source → this node)
+            // and all outgoing connections (this node → target)
+            QVector<Connection> conns = m_engine.connectionsForNode(nodeId);
+            QVector<Connection> inConns, outConns;
+            for (const auto &c : conns) {
+                if (c.targetNodeId == nodeId) inConns.append(c);
+                if (c.sourceNodeId == nodeId) outConns.append(c);
+            }
+            // Pair each input to an output by matching port index,
+            // or pair first input to first output as fallback
+            int nPair = qMin(inConns.size(), outConns.size());
+            for (int i = 0; i < nPair; ++i) {
+                // Find input/output with matching port index if possible
+                const Connection *inC = &inConns[i];
+                const Connection *outC = &outConns[i];
+                for (int j = 0; j < outConns.size(); ++j) {
+                    if (outConns[j].sourcePort == inConns[i].targetPort) {
+                        outC = &outConns[j];
+                        break;
+                    }
+                }
+                if (inC->sourceNodeId == outC->targetNodeId) continue; // self-loop
+                bypasses.append({ inC->sourceNodeId, inC->sourcePort,
+                                  outC->targetNodeId, outC->targetPort });
+            }
+        }
+    }
+
+    saveSnapshot();
 
     // Remove connections
     QVector<ConnectionGraphicsItem*> toRemove;
@@ -62,6 +102,16 @@ void NodeScene::removeNodeFromScene(const QUuid &nodeId)
     m_nodeItems.remove(nodeId);
     removeItem(item);
     delete item;
+
+    // Auto-bypass: connect upstream node directly to downstream node
+    for (const auto &b : bypasses) {
+        QString err;
+        if (m_engine.canConnect(b.srcNodeId, b.srcPort,
+                                b.tgtNodeId, b.tgtPort, err)) {
+            addConnectionToScene(b.srcNodeId, b.srcPort,
+                                 b.tgtNodeId, b.tgtPort);
+        }
+    }
 
     emit workflowModified();
 }
@@ -223,7 +273,7 @@ void NodeScene::deleteSelected()
         if (auto *conn = qgraphicsitem_cast<ConnectionGraphicsItem*>(item))
             removeConnectionFromScene(conn);
         else if (auto *nodeItem = qgraphicsitem_cast<NodeGraphicsItem*>(item))
-            removeNodeFromScene(nodeItem->nodeId());
+            removeNodeFromScene(nodeItem->nodeId(), true);
     }
 }
 
@@ -295,13 +345,23 @@ void NodeScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
 void NodeScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 {
     if (m_dragging) {
-        QList<QGraphicsItem*> items = this->items(event->scenePos());
+        // Search for target port within a 20px radius of the release point,
+        // so small aiming errors still connect successfully.
+        const qreal kSnapRadius = 20.0;
+        QRectF searchRect(event->scenePos().x() - kSnapRadius,
+                          event->scenePos().y() - kSnapRadius,
+                          kSnapRadius * 2, kSnapRadius * 2);
+        QList<QGraphicsItem*> items = this->items(searchRect);
         PortGraphicsItem *target = nullptr;
+        qreal bestDist = kSnapRadius;
         for (auto *i : items) {
             if (auto *p = qgraphicsitem_cast<PortGraphicsItem*>(i)) {
                 if (p->port().direction == PortDirection::Input) {
-                    target = p;
-                    break;
+                    qreal d = QLineF(p->centerScene(), event->scenePos()).length();
+                    if (d < bestDist) {
+                        bestDist = d;
+                        target = p;
+                    }
                 }
             }
         }
@@ -319,17 +379,13 @@ void NodeScene::autoConnect()
 {
     if (m_nodeItems.size() < 2) return;
 
-    // Sort nodes by X position (left to right)
+    // Collect and sort nodes by X position (left to right)
     QList<NodeGraphicsItem*> items = m_nodeItems.values();
     std::sort(items.begin(), items.end(),
               [](NodeGraphicsItem *a, NodeGraphicsItem *b) {
                   return a->pos().x() < b->pos().x();
               });
 
-    // Pool of available output ports from nodes that have been "fed" —
-    // either source nodes (0 inputs) or nodes that received ≥1 input connection.
-    // This prevents dangling nodes (whose inputs couldn't be satisfied) from
-    // polluting the pool with their outputs.
     struct AvailOut {
         QUuid nodeId;
         int   portIndex;
@@ -346,60 +402,93 @@ void NodeScene::autoConnect()
         }
     };
 
-    int connected = 0;
+    // --- Phase 1: Pre-populate pool with outputs from nodes already fully connected ---
+    // Nodes with no inputs (source) or all inputs already satisfied by existing
+    // connections contribute their outputs to the pool upfront.
+    // This ensures that newly added nodes (e.g. ImageOutput at position 0,0)
+    // can find their source even when sorted before the source in X order.
     for (auto *item : items) {
-        const QUuid nodeId = item->nodeId();
+        QUuid nodeId = item->nodeId();
         Node *node = m_engine.node(nodeId);
         if (!node) continue;
 
-        // Try to satisfy each unconnected input port from the available pool
-        int inputsFed = 0;
-        for (int pi = 0; pi < node->inputPorts().size(); ++pi) {
-            if (!m_engine.inputConnectionFor(nodeId, pi).sourceNodeId.isNull()) {
-                ++inputsFed;
-                continue;
-            }
-
-            const Port &inPort = node->inputPorts()[pi];
-            int bestIdx = -1;
-
-            // Scan available outputs: prefer exact type match over Any fallback
-            for (int ai = 0; ai < available.size(); ++ai) {
-                if (!isTypeCompatible(available[ai].dataType, inPort.dataType))
-                    continue;
-                if (available[ai].dataType == inPort.dataType ||
-                    inPort.dataType == DataType::Any) {
-                    bestIdx = ai;
+        if (node->inputPorts().isEmpty()) {
+            for (int pi = 0; pi < node->outputPorts().size(); ++pi)
+                available.append({ nodeId, pi, node->outputPorts()[pi].dataType });
+        } else {
+            bool allFed = true;
+            for (int pi = 0; pi < node->inputPorts().size(); ++pi) {
+                if (m_engine.inputConnectionFor(nodeId, pi).sourceNodeId.isNull()) {
+                    allFed = false;
                     break;
                 }
-                if (bestIdx < 0)
-                    bestIdx = ai;
             }
-
-            if (bestIdx < 0) continue;
-
-            const auto &avail = available[bestIdx];
-            QString err;
-            if (m_engine.canConnect(avail.nodeId, avail.portIndex,
-                                     nodeId, pi, err)) {
-                addConnectionToScene(avail.nodeId, avail.portIndex,
-                                     nodeId, pi);
-                connected++;
-                ++inputsFed;
-                removeFromAvailable(avail.nodeId, avail.portIndex);
-            }
-        }
-
-        // Only add outputs to the pool when this node is actually fed:
-        // it has no inputs (source node) or at least one input was connected.
-        // This prevents dangling nodes from leaking their outputs into the pool
-        // and causing cross-wiring (e.g. Invert without input supplying ImageOutput).
-        if (node->inputPorts().isEmpty() || inputsFed > 0) {
-            for (int pi = 0; pi < node->outputPorts().size(); ++pi) {
-                available.append({ nodeId, pi, node->outputPorts()[pi].dataType });
+            if (allFed) {
+                for (int pi = 0; pi < node->outputPorts().size(); ++pi)
+                    available.append({ nodeId, pi, node->outputPorts()[pi].dataType });
             }
         }
     }
+
+    // --- Phase 2: Iterative left-to-right pass ---
+    // Multiple passes ensure that nodes whose source appears later in X order
+    // will still get connected on a subsequent iteration.
+    int connected = 0;
+    bool changed;
+    do {
+        changed = false;
+        for (auto *item : items) {
+            const QUuid nodeId = item->nodeId();
+            Node *node = m_engine.node(nodeId);
+            if (!node) continue;
+
+            // Check if this node has any unconnected input ports still
+            bool hasUnconnected = false;
+            for (int pi = 0; pi < node->inputPorts().size(); ++pi) {
+                if (m_engine.inputConnectionFor(nodeId, pi).sourceNodeId.isNull()) {
+                    hasUnconnected = true;
+                    break;
+                }
+            }
+            if (!hasUnconnected) continue;
+
+            // Try to satisfy each unconnected input port from the available pool
+            int newlyFed = 0;
+            for (int pi = 0; pi < node->inputPorts().size(); ++pi) {
+                if (!m_engine.inputConnectionFor(nodeId, pi).sourceNodeId.isNull())
+                    continue;
+
+                const Port &inPort = node->inputPorts()[pi];
+                // Try each compatible candidate in the pool until canConnect
+                // succeeds. The first candidate may fail because its source port
+                // is already connected (single-connection restriction), so fall
+                // through to the next candidate.
+                for (int ai = 0; ai < available.size(); ++ai) {
+                    if (!isTypeCompatible(available[ai].dataType, inPort.dataType))
+                        continue;
+
+                    const auto &avail = available[ai];
+                    QString err;
+                    if (m_engine.canConnect(avail.nodeId, avail.portIndex,
+                                             nodeId, pi, err)) {
+                        addConnectionToScene(avail.nodeId, avail.portIndex,
+                                             nodeId, pi);
+                        connected++;
+                        newlyFed++;
+                        removeFromAvailable(avail.nodeId, avail.portIndex);
+                        break;
+                    }
+                }
+            }
+
+            if (newlyFed > 0) {
+                changed = true;
+                // Add this node's outputs to the pool for downstream nodes
+                for (int pi = 0; pi < node->outputPorts().size(); ++pi)
+                    available.append({ nodeId, pi, node->outputPorts()[pi].dataType });
+            }
+        }
+    } while (changed);
 
     if (connected > 0) {
         emit workflowModified();

@@ -24,7 +24,7 @@ public:
 
     // Node graphics management
     NodeGraphicsItem *addNodeToScene(Node *node, const QPointF &pos = {});
-    void removeNodeFromScene(const QUuid &nodeId);
+    void removeNodeFromScene(const QUuid &nodeId, bool autoBypass = false);
     NodeGraphicsItem *nodeGraphics(const QUuid &nodeId) const;
     QList<NodeGraphicsItem*> allNodeGraphics() const { return m_nodeItems.values(); }
 
@@ -45,7 +45,7 @@ public:
     void nodeDoubleClicked(NodeGraphicsItem *item);
 
     // Delete a specific node by id
-    void deleteNode(const QUuid &nodeId) { removeNodeFromScene(nodeId); }
+    void deleteNode(const QUuid &nodeId) { removeNodeFromScene(nodeId, true); }
 
     // Clear all
     void clearAll();
